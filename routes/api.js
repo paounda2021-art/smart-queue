@@ -837,80 +837,45 @@ router.post('/line-webhook', async (req, res) => {
                   ? `${formatDate24h(assignment.start_date)} - ${formatDate24h(assignment.end_date)}`
                   : '-';
 
-                let fileFlexMsg = null;
+                const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '');
+                let fileUrl = null;
                 if (assignment.attachment_file) {
                   const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
                   const baseUrl = rawBaseUrl.replace(/\/app$/, '');
-                  const fileUrl = assignment.attachment_file.startsWith('http')
+                  fileUrl = assignment.attachment_file.startsWith('http')
                     ? assignment.attachment_file
                     : `${baseUrl}${assignment.attachment_file}`;
+                }
 
-                  fileFlexMsg = {
-                    type: 'flex',
-                    altText: '📄 เอกสารแนบกำหนดการกิจกรรม',
-                    contents: {
-                      type: 'bubble',
-                      size: 'mega',
-                      header: {
-                        type: 'box',
-                        layout: 'vertical',
-                        backgroundColor: '#10b981',
-                        paddingAll: '14px',
-                        contents: [
-                          { type: 'text', text: '✅ ตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว', color: '#ffffff', size: 'sm', weight: 'bold' }
-                        ]
-                      },
-                      footer: {
-                        type: 'box',
-                        layout: 'vertical',
-                        paddingAll: '12px',
-                        contents: [
-                          {
-                            type: 'button',
-                            style: 'primary',
-                            color: '#ea580c',
-                            height: 'sm',
-                            action: {
-                              type: 'uri',
-                              label: '📄 คลิกดาวน์โหลดเอกสารกำหนดการ',
-                              uri: fileUrl
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  };
-
+                if (fileUrl) {
                   replyMessages = [
                     {
                       type: 'text',
                       text:
-                        `✅ รับทราบแล้วค่ะ    ${assignment.person_name || assignment.name || '-'}\n\n` +
+                        `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
                         `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                         `📍 สถานที่: ${assignment.location || '-'}\n` +
                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                         `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                         `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
                         `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n` +
-                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบ  ค่ะ 🙏`
-                    },
-                    fileFlexMsg
+                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                    }
                   ];
                 } else {
                   replyMessages = [{
                     type: 'text',
                     text:
-                      `✅ รับทราบแล้วค่ะ    ${assignment.person_name || assignment.name || '-'}\n\n` +
+                      `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
                       `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                       `📍 สถานที่: ${assignment.location || '-'}\n` +
                       `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                       `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                       `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                      `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบ  ค่ะ 🙏`
+                      `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
                   }];
                 }
               }
-
             }
           } else if (postbackData.startsWith('BUSY|')) {
             const [, missionIdRaw, personnelIdRaw] = postbackData.split('|');
