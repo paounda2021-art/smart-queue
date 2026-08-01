@@ -537,7 +537,7 @@ async function loadRecentMissionsList() {
 
 
       html += `
-        <tr>
+        <tr style="cursor: pointer;" onclick="openMissionDetailModal(${m.id})" title="คลิกเพื่อดูรายละเอียดและเปลี่ยนตัว">
           <td><strong style="color:var(--text-heading);">${escapeHtml(m.mission_title)}</strong></td>
           <td>${escapeHtml(m.location || '-')}</td>
           <td>${formatDate(m.start_date)}</td>
@@ -1792,7 +1792,7 @@ function renderMissionsTable(list) {
 
 
     html += `
-      <tr>
+      <tr style="cursor: pointer;" onclick="openMissionDetailModal(${m.id})" title="คลิกเพื่อดูรายละเอียดและเปลี่ยนตัว">
         <td><code>${m.mission_code || 'ACT-' + m.id}</code></td>
         <td><strong style="color:var(--text-heading);">${escapeHtml(m.mission_title)}</strong>${newBadge}</td>
         <td>${escapeHtml(m.location || '-')}</td>
@@ -1801,7 +1801,7 @@ function renderMissionsTable(list) {
         <td><span class="badge badge-director">${m.directors_count} ท่าน</span></td>
         <td><span class="badge badge-staff">${m.staff_count} ท่าน</span></td>
         <td>${statusBadge}</td>
-        <td>
+        <td onclick="event.stopPropagation()">
           <button class="btn btn-secondary btn-sm" onclick="openMissionDetailModal(${m.id})">
             <i class="fa-solid fa-eye"></i> รายชื่อ & เปลี่ยนตัว
           </button>

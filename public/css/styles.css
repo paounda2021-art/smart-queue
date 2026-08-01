@@ -559,6 +559,15 @@ table.custom-table tbody tr:hover {
   background: var(--table-row-hover);
 }
 
+table.custom-table tbody tr[onclick] {
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+table.custom-table tbody tr[onclick]:hover {
+  background: rgba(2, 132, 199, 0.08);
+}
+
 /* Buttons */
 .btn {
   font-family: 'Sarabun', 'Pridi', 'Maitree', -apple-system, BlinkMacSystemFont, sans-serif !important;
