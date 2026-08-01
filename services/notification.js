@@ -649,29 +649,6 @@ function createPersonalizedFlexCard(
                   }
                 ]
           },
-          ...(fileUrl ? [{
-            type: 'button',
-            style: 'primary',
-            color: '#ea580c',
-            height: 'sm',
-            action: {
-              type: 'uri',
-              label: '📄 ดูไฟล์แนบกำหนดการ',
-              uri: fileUrl
-            }
-          }] : []),
-          {
-            type: 'button',
-            style: 'secondary',
-            height: 'sm',
-            color: '#0284c7',
-            action: {
-              type: 'uri',
-              label: '📅 บันทึกลงปฏิทินมือถือ',
-              uri: generateGoogleCalendarUrl(mission)
-            }
-          }
-          ,
           {
             type: 'text',
             text: 'ระบบตอบกลับข้อความอัตโนมัติ',
