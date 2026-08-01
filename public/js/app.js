@@ -1457,6 +1457,7 @@ async function handleCreateMission(event) {
   let attachmentName = '';
   const fileInput = document.getElementById('alloc-attachment-file');
   const urlInput = document.getElementById('alloc-attachment-url')?.value.trim();
+  const descInput = document.getElementById('alloc-desc')?.value.trim();
 
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const formData = new FormData();
@@ -1478,6 +1479,12 @@ async function handleCreateMission(event) {
   } else if (urlInput) {
     attachmentUrl = urlInput;
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+  } else if (descInput) {
+    const match = descInput.match(/(https?:\/\/[^\s]+)/i);
+    if (match) {
+      attachmentUrl = match[0];
+      attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+    }
   }
 
   try {
@@ -3253,6 +3260,12 @@ async function saveScheduleChanges(e) {
   } else if (urlInput) {
     attachmentUrl = urlInput;
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+  } else if (scheduleDetails) {
+    const match = scheduleDetails.match(/(https?:\/\/[^\s]+)/i);
+    if (match) {
+      attachmentUrl = match[0];
+      attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+    }
   }
 
   showToast('กำลังบันทึกและส่งแจ้งเตือนเปลี่ยนแปลงกำหนดการทาง LINE...', 'info');
