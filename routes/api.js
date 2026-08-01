@@ -1346,6 +1346,61 @@ router.post('/line-webhook', async (req, res) => {
                 }];
               }
             }
+          } else if (postbackData.startsWith('SCHED_DETAIL|')) {
+            const [, missionIdRaw] = postbackData.split('|');
+            const missionId = parseInt(missionIdRaw, 10);
+
+            const mission = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
+            if (!mission) {
+              replyMessages = [{
+                type: 'text',
+                text: '❌ ไม่พบข้อมูลกิจกรรมในระบบ กรุณาติดต่อเจ้าหน้าที่ค่ะ'
+              }];
+            } else {
+              const timeStr = (mission.start_date && mission.end_date)
+                ? `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`
+                : '-';
+
+              let cleanName = null;
+              if (lineUserId) {
+                const p = await dbGet(`SELECT name FROM personnel WHERE line_user_id = ?;`, [lineUserId]);
+                if (p && p.name) {
+                  cleanName = String(p.name).replace(/^คุณ\s+/i, '');
+                }
+              }
+
+              const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
+              const baseUrl = rawBaseUrl.replace(/\/app$/, '');
+              const fileUrl = mission.attachment_file
+                ? (mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`)
+                : null;
+
+              let msgText = `📋 รายละเอียดกำหนดการกิจกรรม (อัปเดตใหม่)\n\n`;
+              if (cleanName) {
+                msgText += `เรียน ${cleanName}\n\n`;
+              }
+              msgText += `📌 กิจกรรม:\n${mission.mission_title || '-'}\n\n` +
+                         `📍 สถานที่: ${mission.location || '-'}\n` +
+                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
+                         `👔 การแต่งกาย: ${mission.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n`;
+
+              if (mission.schedule_details) {
+                msgText += `📝 รายละเอียดการเปลี่ยนแปลงกำหนดการใหม่:\n${mission.schedule_details}\n\n`;
+              } else if (mission.description) {
+                msgText += `📝 รายละเอียด/กำหนดการ:\n${mission.description}\n\n`;
+              }
+
+              if (fileUrl) {
+                msgText += `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n`;
+              }
+
+              msgText += `ระบบได้ดึงข้อมูลรายละเอียดกำหนดการล่าสุดให้เรียบร้อยแล้วค่ะ ขอบคุณค่ะ 🙏`;
+
+              replyMessages = [{
+                type: 'text',
+                text: msgText
+              }];
+            }
           } else if (postbackData.startsWith('SWAP_ACCEPT|')) {
             const [, swapIdRaw, reqIdRaw, targetIdRaw] = postbackData.split('|');
             const swapId = parseInt(swapIdRaw);

@@ -1403,31 +1403,34 @@ async function sendScheduleChangeNotification(mission, assignedList) {
           } : { type: 'spacer', size: 'xs' }
         ]
       },
-      ...(fileUrl ? {
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          paddingAll: '12px',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              color: '#ea580c',
-              height: 'sm',
-              action: { type: 'uri', label: '📄 ดูไฟล์แนบกำหนดการใหม่', uri: fileUrl }
-            },
-            {
-              type: 'text',
-              text: 'ระบบตอบกลับข้อความอัตโนมัติ',
-              size: 'xxs',
-              color: '#94a3b8',
-              align: 'end',
-              margin: 'xs'
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        paddingAll: '12px',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#ea580c',
+            height: 'sm',
+            action: {
+              type: 'postback',
+              label: '📄 รายละเอียดกำหนดการใหม่',
+              data: `SCHED_DETAIL|${mission.id}`,
+              displayText: '📋 ขอรับรายละเอียดกำหนดการใหม่'
             }
-          ]
-        }
-      } : {})
+          },
+          {
+            type: 'text',
+            text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+            size: 'xxs',
+            color: '#94a3b8',
+            align: 'end',
+            margin: 'xs'
+          }
+        ]
+      }
     }
   };
 
