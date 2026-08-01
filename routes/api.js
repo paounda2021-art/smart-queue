@@ -853,6 +853,10 @@ router.post('/line-webhook', async (req, res) => {
                     fileUrl = assignment.attachment_file.startsWith('http')
                       ? assignment.attachment_file
                       : `${baseUrl}${assignment.attachment_file}`;
+                  } else {
+                    const textSearch = `${assignment.schedule_details || ''} ${assignment.description || ''}`;
+                    const match = textSearch.match(/(https?:\/\/[^\s]+)/i);
+                    if (match) fileUrl = match[0];
                   }
 
                   if (fileUrl) {
@@ -1371,9 +1375,15 @@ router.post('/line-webhook', async (req, res) => {
 
               const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
               const baseUrl = rawBaseUrl.replace(/\/app$/, '');
-              const fileUrl = mission.attachment_file
+              let fileUrl = mission.attachment_file
                 ? (mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`)
                 : null;
+
+              if (!fileUrl) {
+                const textSearch = `${mission.schedule_details || ''} ${mission.description || ''}`;
+                const match = textSearch.match(/(https?:\/\/[^\s]+)/i);
+                if (match) fileUrl = match[0];
+              }
 
               let msgText = `📋 รายละเอียดกำหนดการกิจกรรม (อัปเดตใหม่)\n\n`;
               if (cleanName) {
