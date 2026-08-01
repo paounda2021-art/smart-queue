@@ -1314,22 +1314,11 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
   };
 }
 
-async function sendScheduleChangeNotification(mission, assignedList) {
-  if (!mission || !Array.isArray(assignedList) || assignedList.length === 0) {
-    return false;
-  }
-
-  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  if (!lineToken) {
-    console.error('❌ ไม่พบ LINE_CHANNEL_ACCESS_TOKEN');
-    return false;
-  }
-
+function createScheduleChangeFlexCardPayload(mission, person = null) {
   const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
-  const baseUrl = APP_BASE_URL.replace(/\/app$/, '');
-  const fileUrl = mission.attachment_file ? (mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`) : null;
+  const cleanName = person?.name ? String(person.name).replace(/^คุณ\s+/i, '') : null;
 
-  const flexCardObj = {
+  return {
     type: 'flex',
     altText: `📢 [แจ้งเปลี่ยนแปลงกำหนดการ] ${mission.mission_title}`,
     contents: {
@@ -1341,8 +1330,8 @@ async function sendScheduleChangeNotification(mission, assignedList) {
         backgroundColor: '#ea580c',
         paddingAll: '16px',
         contents: [
-          { type: 'text', text: 'FMO SMART QUEUE - SCHEDULE UPDATE', color: '#ffedd5', size: 'xxs', weight: 'bold' },
-          { type: 'text', text: '📢 แจ้งเปลี่ยนแปลงกำหนดการกิจกรรม', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs' }
+          { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#ffedd5', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: '📢 แจ้งเปลี่ยนแปลงกำหนดการกิจกรรม', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
         ]
       },
       body: {
@@ -1352,6 +1341,15 @@ async function sendScheduleChangeNotification(mission, assignedList) {
         spacing: 'md',
         contents: [
           { type: 'text', text: mission.mission_title, weight: 'bold', size: 'md', color: '#0f172a', wrap: true },
+          ...(cleanName ? [{
+            type: 'text',
+            text: `👤 เรียน: ${cleanName}`,
+            size: 'sm',
+            color: '#ea580c',
+            weight: 'bold',
+            margin: 'sm',
+            wrap: true
+          }] : []),
           {
             type: 'box',
             layout: 'vertical',
@@ -1433,15 +1431,29 @@ async function sendScheduleChangeNotification(mission, assignedList) {
       }
     }
   };
+}
+
+async function sendScheduleChangeNotification(mission, assignedList) {
+  if (!mission || !Array.isArray(assignedList) || assignedList.length === 0) {
+    console.log('ℹ️ ไม่มีผู้ได้รับจัดสรรให้ส่งแจ้งเตือนเปลี่ยนแปลงกำหนดการ');
+    return false;
+  }
+
+  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!lineToken) {
+    console.error('❌ ไม่พบ LINE_CHANNEL_ACCESS_TOKEN');
+    return false;
+  }
 
   for (const person of assignedList) {
     if (person.line_user_id) {
+      const personalCard = createScheduleChangeFlexCardPayload(mission, person);
       try {
         await axios.post(
           'https://api.line.me/v2/bot/message/push',
           {
             to: person.line_user_id,
-            messages: [flexCardObj]
+            messages: [personalCard]
           },
           {
             headers: {
@@ -1459,12 +1471,13 @@ async function sendScheduleChangeNotification(mission, assignedList) {
 
   const lineGroupId = process.env.LINE_GROUP_ID;
   if (lineGroupId) {
+    const groupCard = createScheduleChangeFlexCardPayload(mission, null);
     try {
       await axios.post(
         'https://api.line.me/v2/bot/message/push',
         {
           to: lineGroupId,
-          messages: [flexCardObj]
+          messages: [groupCard]
         },
         {
           headers: {
