@@ -135,7 +135,7 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
         backgroundColor: headerBgColor,
         paddingAll: '16px',
         contents: [
-          { type: 'text', text: 'FMO SMART QUEUE SYSTEM', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
           { type: 'text', text: headerTitle, color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs' }
         ]
       },
@@ -253,22 +253,37 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
       },
       footer: {
         type: 'box',
-        layout: 'horizontal',
+        layout: 'vertical',
         spacing: 'sm',
         paddingAll: '12px',
         contents: [
           {
-            type: 'button',
-            style: 'primary',
-            color: '#10b981',
-            height: 'sm',
-            action: { type: 'uri', label: '\ud83d\udfe2 \u0e14\u0e39\u0e23\u0e32\u0e22\u0e25\u0e30\u0e40\u0e2d\u0e35\u0e22\u0e14', uri: APP_BASE_URL }
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#10b981',
+                height: 'sm',
+                action: { type: 'uri', label: '\ud83d\udfe2 ดูรายละเอียด', uri: APP_BASE_URL }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: { type: 'uri', label: '\ud83d\udd14 เปิดเว็บ', uri: APP_BASE_URL }
+              }
+            ]
           },
           {
-            type: 'button',
-            style: 'secondary',
-            height: 'sm',
-            action: { type: 'uri', label: '\ud83d\udd14 \u0e40\u0e1b\u0e34\u0e14\u0e40\u0e27\u0e47\u0e1a', uri: APP_BASE_URL }
+            type: 'text',
+            text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+            size: 'xxs',
+            color: '#94a3b8',
+            align: 'end',
+            margin: 'xs'
           }
         ]
       }
@@ -377,7 +392,7 @@ function createPersonalizedFlexCard(
         contents: [
           {
             type: 'text',
-            text: 'FMO SMART QUEUE SYSTEM',
+            text: 'FMO SMART QUEUE SYSTEM (Auto Reply)',
             color: '#e0f2fe',
             size: 'xxs',
             weight: 'bold'
@@ -653,6 +668,15 @@ function createPersonalizedFlexCard(
               uri: generateGoogleCalendarUrl(mission)
             }
           }
+          ,
+          {
+            type: 'text',
+            text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+            size: 'xxs',
+            color: '#94a3b8',
+            align: 'end',
+            margin: 'xs'
+          }
         ]
       }
     }
@@ -870,7 +894,7 @@ async function sendUpcomingQueueNotice() {
       if (lineToken && lineId && lineId.toLowerCase() !== 'email') {
         const upcomingFlexPayload = {
           type: 'flex',
-          altText: `📢 แจ้งเตือนเตรียมพร้อมลำดับคิว อสป.: คุณอยู่อันดับ ${orderText}`,
+          altText: `📢 แจ้งเตือนเตรียมพร้อมลำดับคิว อสป.:  อยู่อันดับ ${orderText}`,
           contents: {
             type: 'bubble',
             header: {
@@ -879,7 +903,7 @@ async function sendUpcomingQueueNotice() {
               backgroundColor: '#0284c7',
               paddingAll: '16px',
               contents: [
-                { type: 'text', text: 'FMO SMART QUEUE SYSTEM', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+                { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
                 { type: 'text', text: '📢 แจ้งเตือนเตรียมพร้อมลำดับคิว (อสป.)', color: '#ffffff', size: 'sm', weight: 'bold', margin: 'xs', wrap: true }
               ]
             },
@@ -889,7 +913,7 @@ async function sendUpcomingQueueNotice() {
               paddingAll: '16px',
               spacing: 'md',
               contents: [
-                { type: 'text', text: `👤 เรียน: คุณ ${person.name}`, weight: 'bold', size: 'sm', color: '#0f172a', wrap: true },
+                { type: 'text', text: `👤 เรียน: ${person.name}`, weight: 'bold', size: 'sm', color: '#0f172a', wrap: true },
                 {
                   type: 'box',
                   layout: 'vertical',
@@ -927,11 +951,11 @@ async function sendUpcomingQueueNotice() {
         }
       } else {
         const targetEmail = person.email || `${String(person.emp_code).toLowerCase()}@fishmarket.co.th`;
-        const emailSubject = `📢 แจ้งเตือนเตรียมพร้อมลำดับคิว อสป. (คุณอยู่ในลำดับคิวถัดไป)`;
+        const emailSubject = `📢 แจ้งเตือนเตรียมพร้อมลำดับคิว อสป. ( อยู่ในลำดับคิวถัดไป)`;
         const emailBody = `
           <div style="font-family: Sarabun, sans-serif; padding: 20px; border: 1px solid #0284c7; border-radius: 10px; max-width: 600px;">
             <h2 style="color: #0284c7;">📢 แจ้งเตือนเตรียมความพร้อมลำดับคิว (อสป.)</h2>
-            <p>เรียน คุณ <strong>${person.name}</strong> (${person.position || 'พนักงาน อสป.'}),</p>
+            <p>เรียน <strong>${person.name}</strong> (${person.position || 'พนักงาน อสป.'}),</p>
             <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #bae6fd;">
               <p style="margin: 4px 0; color: #0284c7;"><strong>📊 ตำแหน่งคิวปัจจุบัน:</strong> ${orderText}</p>
               <p style="margin: 4px 0; color: #64748b;"><strong>🔄 รอบปฏิบัติงาน:</strong> รอบที่ ${person.current_round || 1}</p>
@@ -1032,7 +1056,7 @@ async function dispatchPreEventReminders() {
                 backgroundColor: headerBgColor,
                 paddingAll: '16px',
                 contents: [
-                  { type: 'text', text: 'FMO SMART QUEUE AUTOMATED SYSTEM', color: headerSubColor, size: 'xxs', weight: 'bold' },
+                  { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: headerSubColor, size: 'xxs', weight: 'bold' },
                   { type: 'text', text: `${reminderTag}`, color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
                 ]
               },
@@ -1043,7 +1067,7 @@ async function dispatchPreEventReminders() {
                 spacing: 'md',
                 contents: [
                   { type: 'text', text: mission.mission_title, weight: 'bold', size: 'md', color: '#0f172a', wrap: true },
-                  { type: 'text', text: `👤 เรียน: คุณ ${person.name}`, size: 'sm', color: textHighlightColor, weight: 'bold', wrap: true },
+                  { type: 'text', text: `👤 เรียน: ${person.name}`, size: 'sm', color: textHighlightColor, weight: 'bold', wrap: true },
                   {
                     type: 'box',
                     layout: 'vertical',
@@ -1067,6 +1091,20 @@ async function dispatchPreEventReminders() {
                     contents: [
                       { type: 'text', text: isUrgent2h ? '🚨 กิจกรรมกำลังจะเริ่มขึ้นในอีก 2 ชั่วโมงข้างหน้า! กรุณาเตรียมพร้อมปฏิบัติงานทันที' : '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที', size: 'xxs', color: '#854d0e', wrap: true }
                     ]
+                  }
+                ]
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '12px',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+                    size: 'xxs',
+                    color: '#94a3b8',
+                    align: 'end'
                   }
                 ]
               }
@@ -1096,7 +1134,7 @@ async function dispatchPreEventReminders() {
           const emailBody = `
             <div style="font-family: Sarabun, sans-serif; padding: 20px; border: 1px solid ${isUrgent2h ? '#dcdc26' : '#d9cb06'}; border-radius: 10px; max-width: 600px;">
               <h2 style="color: ${isUrgent2h ? '#dcdc26' : '#d9cb06'};">${reminderTag}</h2>
-              <p>เรียน คุณ <strong>${person.name}</strong>,</p>
+              <p>เรียน <strong>${person.name}</strong>,</p>
               <p>ระบบอัตโนมัติขอแจ้งเตือนความจำปฏิบัติหน้าที่ในกิจกรรม <strong>${mission.mission_title}</strong></p>
               <div style="background: ${isUrgent2h ? '#fff5f5' : '#fffbeb'}; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid ${isUrgent2h ? '#fca5a5' : '#fde68a'};">
                 <p style="margin: 4px 0;"><strong>📍 สถานที่:</strong> ${mission.location || '-'}</p>
@@ -1132,7 +1170,7 @@ async function dispatchPreEventReminders() {
 function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
   return {
     type: 'flex',
-    altText: `🔄 คำขอสลับลำดับคิวถาวรจาก คุณ ${requester.name}`,
+    altText: `🔄 คำขอสลับลำดับคิวถาวรจาก ${requester.name}`,
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -1144,7 +1182,7 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
         contents: [
           {
             type: 'text',
-            text: 'FMO SMART QUEUE SYSTEM',
+            text: 'FMO SMART QUEUE SYSTEM (Auto Reply)',
             color: '#f3e8ff',
             size: 'xxs',
             weight: 'bold'
@@ -1168,7 +1206,7 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
         contents: [
           {
             type: 'text',
-            text: `👤 ผู้ขอสลับคิว: คุณ ${requester.name} (${requester.emp_code})`,
+            text: `👤 ผู้ขอสลับคิว: ${requester.name} (${requester.emp_code})`,
             weight: 'bold',
             size: 'sm',
             color: '#0f172a',
@@ -1188,7 +1226,7 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
           },
           {
             type: 'text',
-            text: `🔁 มีความประสงค์ขอสลับคิวกับ: คุณ ${target.name} (คิวที่ #${target.queue_order})`,
+            text: `🔁 มีความประสงค์ขอสลับคิวกับ: ${target.name} (คิวที่ #${target.queue_order})`,
             size: 'xs',
             color: '#a855f7',
             weight: 'bold',
@@ -1218,7 +1256,7 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
               },
               {
                 type: 'text',
-                text: `หากคุณกดยินยอม ลำดับคิวของคุณ (${target.name}) จะเปลี่ยนเป็น #${requester.queue_order} และลำดับคิวของคุณ (${requester.name}) จะเปลี่ยนเป็น #${target.queue_order} ในรอบปัจจุบัน`,
+                text: `หากกดยินยอม ลำดับคิวของคุณ (${target.name}) จะเปลี่ยนเป็น #${requester.queue_order} และลำดับคิวของคุณ (${requester.name}) จะเปลี่ยนเป็น #${target.queue_order} ในรอบปัจจุบัน`,
                 size: 'xxs',
                 color: '#6b21a8',
                 wrap: true,
@@ -1230,32 +1268,47 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
       },
       footer: {
         type: 'box',
-        layout: 'horizontal',
+        layout: 'vertical',
         spacing: 'sm',
         paddingAll: '12px',
         contents: [
           {
-            type: 'button',
-            style: 'primary',
-            color: '#10b981',
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '🟢 ยินยอมสลับคิว',
-              data: `SWAP_ACCEPT|${swapId}|${requester.id}|${target.id}`,
-              displayText: '✅ ยินยอมสลับลำดับคิว'
-            }
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#10b981',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: '🟢 ยินยอมสลับคิว',
+                  data: `SWAP_ACCEPT|${swapId}|${requester.id}|${target.id}`,
+                  displayText: '✅ ยินยอมสลับลำดับคิว'
+                }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: '🔴 ปฏิเสธการสลับ',
+                  data: `SWAP_REJECT|${swapId}|${requester.id}|${target.id}`,
+                  displayText: '❌ ไม่สะดวกสลับคิว'
+                }
+              }
+            ]
           },
           {
-            type: 'button',
-            style: 'secondary',
-            height: 'sm',
-            action: {
-              type: 'postback',
-              label: '🔴 ปฏิเสธการสลับ',
-              data: `SWAP_REJECT|${swapId}|${requester.id}|${target.id}`,
-              displayText: '❌ ไม่สะดวกสลับคิว'
-            }
+            type: 'text',
+            text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+            size: 'xxs',
+            color: '#94a3b8',
+            align: 'end',
+            margin: 'xs'
           }
         ]
       }
@@ -1365,6 +1418,14 @@ async function sendScheduleChangeNotification(mission, assignedList) {
               color: '#ea580c',
               height: 'sm',
               action: { type: 'uri', label: '📄 ดูไฟล์แนบกำหนดการใหม่', uri: fileUrl }
+            },
+            {
+              type: 'text',
+              text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+              size: 'xxs',
+              color: '#94a3b8',
+              align: 'end',
+              margin: 'xs'
             }
           ]
         }

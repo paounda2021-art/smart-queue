@@ -92,7 +92,7 @@ router.post('/login', async (req, res) => {
 
     res.json({
       success: true,
-      message: `ยินดีต้อนรับ คุณ${user.name}`,
+      message: `ยินดีต้อนรับ   ${user.name}`,
       user: {
         username: user.emp_code,
         label: user.name,
@@ -640,7 +640,7 @@ router.post('/line-webhook', async (req, res) => {
           contents: [
             {
               type: 'text',
-              text: `สวัสดีคุณ ${person.name || '-'}`,
+              text: `สวัสดี   ${person.name || '-'}`,
               weight: 'bold',
               size: 'md',
               color: '#111111',
@@ -885,14 +885,14 @@ router.post('/line-webhook', async (req, res) => {
                     {
                       type: 'text',
                       text:
-                        `✅ รับทราบแล้วค่ะ คุณ ${assignment.person_name || assignment.name || '-'}\n\n` +
+                        `✅ รับทราบแล้วค่ะ    ${assignment.person_name || assignment.name || '-'}\n\n` +
                         `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                         `📍 สถานที่: ${assignment.location || '-'}\n` +
                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                         `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                         `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
                         `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n` +
-                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบ  ค่ะ 🙏`
                     },
                     fileFlexMsg
                   ];
@@ -900,13 +900,13 @@ router.post('/line-webhook', async (req, res) => {
                   replyMessages = [{
                     type: 'text',
                     text:
-                      `✅ รับทราบแล้วค่ะ คุณ ${assignment.person_name || assignment.name || '-'}\n\n` +
+                      `✅ รับทราบแล้วค่ะ    ${assignment.person_name || assignment.name || '-'}\n\n` +
                       `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                       `📍 สถานที่: ${assignment.location || '-'}\n` +
                       `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                       `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                       `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                      `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                      `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบ  ค่ะ 🙏`
                   }];
                 }
               }
@@ -977,7 +977,7 @@ router.post('/line-webhook', async (req, res) => {
                     spacing: 'md',
                     contents: [
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
-                      { type: 'text', text: `เรียน คุณ ${assignment.name}`, size: 'xs', color: '#64748b' },
+                      { type: 'text', text: `เรียน    ${assignment.name}`, size: 'xs', color: '#64748b' },
                       
                       // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
                       {
@@ -1074,15 +1074,15 @@ router.post('/line-webhook', async (req, res) => {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
-                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ คุณ ${replacementAssignment.replacement_name} (${replacementAssignment.replacement_emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ    ${replacementAssignment.replacement_name} (${replacementAssignment.replacement_emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
                     `📩 แจ้งเตือนผู้ปฏิบัติงานคนใหม่เรียบร้อยแล้ว ทางไลน์`
                 }];
               } else {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
                     `⚠️ ขณะนี้ไม่มีพนักงานคงเหลือในคิวเพื่อปฏิบัติงานแทน ระบบจึงลงประวัติขอลาไว้ให้เรียบร้อยค่ะ`
                 }];
               }
@@ -1118,7 +1118,7 @@ router.post('/line-webhook', async (req, res) => {
                     spacing: 'md',
                     contents: [
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
-                      { type: 'text', text: `เรียน คุณ ${assignment.name}`, size: 'xs', color: '#64748b' },
+                      { type: 'text', text: `เรียน    ${assignment.name}`, size: 'xs', color: '#64748b' },
                       
                       // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
                       {
@@ -1257,15 +1257,15 @@ router.post('/line-webhook', async (req, res) => {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
-                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ คุณ ${replacementAssignment.replacement_name} (${replacementAssignment.replacement_emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ    ${replacementAssignment.replacement_name} (${replacementAssignment.replacement_emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
                     `📩 แจ้งเตือนผู้ปฏิบัติงานคนใหม่เรียบร้อยแล้ว ทางไลน์`
                 }];
               } else {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
                     `⚠️ ขณะนี้ไม่มีพนักงานคงเหลือในคิวเพื่อปฏิบัติงานแทน ระบบจึงลงประวัติขอลาไว้ให้เรียบร้อยค่ะ`
                 }];
               }
@@ -1336,8 +1336,8 @@ router.post('/line-webhook', async (req, res) => {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
-                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ คุณ ${nextCandidate.name} (${nextCandidate.emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `👤\nระบบได้จัดสรรพนักงานลำดับถัดไปคือ    ${nextCandidate.name} (${nextCandidate.emp_code}) ปฏิบัติงานแทนให้อัตโนมัติเรียบร้อยแล้วค่ะ\n\n` +
                     `📩 แจ้งเตือนผู้ปฏิบัติงานคนใหม่เรียบร้อยแล้ว ทางไลน์`
                 }];
               } else {
@@ -1345,7 +1345,7 @@ router.post('/line-webhook', async (req, res) => {
                 replyMessages = [{
                   type: 'text',
                   text:
-                    `🔴 บันทึกการติดภารกิจของคุณ ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
+                    `🔴 บันทึกการติดภารกิจของ   ${assignment.name} เรียบร้อยแล้วค่ะ\n(ถือว่าใช้สิทธิ์ในรอบนี้แล้ว)\n\n` +
                     `⚠️ ขณะนี้ไม่มีพนักงานคงเหลือในคิวเพื่อปฏิบัติงานแทน ระบบจึงลงประวัติขอลาไว้ให้เรียบร้อยค่ะ`
                 }];
               }
@@ -1379,7 +1379,7 @@ router.post('/line-webhook', async (req, res) => {
                     to: q1.line_user_id,
                     messages: [{
                       type: 'text',
-                      text: `🎉 คุณ ${q2.name} ได้กดยินยอมสลับคิวกับคุณเรียบร้อยแล้วค่ะ!\n\nลำดับคิวใหม่ของคุณ ${q1.name}: คิวที่ #${q2.queue_order}\nลำดับคิวใหม่ของคุณ ${q2.name}: คิวที่ #${q1.queue_order}`
+                      text: `🎉    ${q2.name} ได้กดยินยอมสลับคิวกับ  เรียบร้อยแล้วค่ะ!\n\nลำดับคิวใหม่ของ   ${q1.name}: คิวที่ #${q2.queue_order}\nลำดับคิวใหม่ของ   ${q2.name}: คิวที่ #${q1.queue_order}`
                     }]
                   }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` } });
                 } catch (e) { console.error('Error pushing swap notification:', e); }
@@ -1387,7 +1387,7 @@ router.post('/line-webhook', async (req, res) => {
 
               replyMessages = [{
                 type: 'text',
-                text: `✅ อนุมัติสลับลำดับคิวสำเร็จเรียบร้อยแล้วค่ะ!\n\nลำดับคิวใหม่ของคุณ ${q2.name}: คิวที่ #${q1.queue_order}\nลำดับคิวใหม่ของคุณ ${q1.name}: คิวที่ #${q2.queue_order}`
+                text: `✅ อนุมัติสลับลำดับคิวสำเร็จเรียบร้อยแล้วค่ะ!\n\nลำดับคิวใหม่ของ   ${q2.name}: คิวที่ #${q1.queue_order}\nลำดับคิวใหม่ของ   ${q1.name}: คิวที่ #${q2.queue_order}`
               }];
             }
           } else if (postbackData.startsWith('SWAP_REJECT|')) {
@@ -1404,7 +1404,7 @@ router.post('/line-webhook', async (req, res) => {
                   to: q1.line_user_id,
                   messages: [{
                     type: 'text',
-                    text: `⚠️ คำขอสลับคิวของคุณถูกปฏิเสธเนื่องจากอีกฝ่ายไม่สะดวกสลับ ลำดับคิวของคุณจึงยังคงเดิมค่ะ`
+                    text: `⚠️ คำขอสลับคิวของ  ถูกปฏิเสธเนื่องจากอีกฝ่ายไม่สะดวกสลับ ลำดับคิวของ  จึงยังคงเดิมค่ะ`
                   }]
                 }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` } });
               } catch (e) { console.error('Error pushing swap reject notification:', e); }
@@ -1536,7 +1536,7 @@ router.post('/line-webhook', async (req, res) => {
                   `📧 ระบบได้บันทึกช่องทางรับการแจ้งเตือนทางอีเมลเรียบร้อยแล้วค่ะ\n\n` +
                   `👤 ${person.name} (${person.emp_code})\n` +
                   `📮 การแจ้งเตือนคิวและภารกิจจะถูกจัดส่งไปยัง:\n` +
-                  `👉 ${person.email || 'อีเมลองค์กรของคุณ'}`
+                  `👉 ${person.email || 'อีเมลองค์กรของ  '}`
               }];
             } else {
               messagesPayload = [{
@@ -1583,9 +1583,61 @@ router.post('/line-webhook', async (req, res) => {
                 type: 'text',
                 text:
                   `🔴 รับทราบการติดภารกิจ (${latestAssignment.mission_title || '-'})\n\n` +
-                  `คุณ ${latestAssignment.name} กรุณาพิมพ์รหัสพนักงาน ` +
+                  `   ${latestAssignment.name} กรุณาพิมพ์รหัสพนักงาน ` +
                   '(เช่น EMP-025) ที่ต้องการให้ปฏิบัติงานแทนค่ะ'
               }];
+            }
+          }
+
+          // -----------------------------------------------------------
+          // B4.5 สลับคิว / SWAP
+          // -----------------------------------------------------------
+          else if (userMessage.startsWith('สลับ ') || userMessage.startsWith('SWAP ')) {
+            const targetQuery = rawText.replace(/^สลับ\s+/i, '').replace(/^SWAP\s+/i, '').trim().toUpperCase();
+            const senderPerson = await dbGet(`SELECT p.*, qm.queue_order, qm.role_type FROM personnel p JOIN queue_members qm ON p.id = qm.personnel_id WHERE p.line_user_id = ?`, [lineUserId]);
+
+            if (!senderPerson) {
+              messagesPayload = [{ type: 'text', text: '❌ ไม่พบบัญชี LINE ของ  ในระบบ กรุณาพิมพ์รหัสพนักงานเพื่อผูกบัญชีก่อนค่ะ (เช่น DIR-01 หรือ EMP-001)' }];
+            } else {
+              const targetPerson = await dbGet(`
+                SELECT p.*, qm.queue_order, qm.role_type
+                FROM personnel p
+                JOIN queue_members qm ON p.id = qm.personnel_id
+                WHERE (UPPER(TRIM(p.emp_code)) = ? OR p.name LIKE ?)
+              `, [targetQuery, `%${targetQuery}%`]);
+
+              if (!targetPerson) {
+                messagesPayload = [{ type: 'text', text: `❌ ไม่พบข้อมูลพนักงาน "${targetQuery}" ในระบบค่ะ กรุณาตรวจสอบรหัสพนักงานอีกครั้งค่ะ` }];
+              } else if (senderPerson.id === targetPerson.id) {
+                messagesPayload = [{ type: 'text', text: '❌ ไม่สามารถยื่นขอสลับคิวกับตนเองได้ค่ะ' }];
+              } else if (senderPerson.role_type !== targetPerson.role_type) {
+                messagesPayload = [{ type: 'text', text: '❌ การสลับคิวทำได้เฉพาะบุคลากรในกลุ่มประเภทเดียวกันเท่านั้น (ผอ. สลับกับ ผอ. / พนักงาน สลับกับ พนักงาน)' }];
+              } else if (['DIR-10', 'DIR-09'].includes(senderPerson.emp_code) || ['DIR-10', 'DIR-09'].includes(targetPerson.emp_code)) {
+                messagesPayload = [{ type: 'text', text: '❌ ตำแหน่งผู้บริหารระดับสูง (DIR-10 และ DIR-09) ไม่เข้าคิวสลับถาวรในระบบค่ะ' }];
+              } else {
+                const swapRes = await dbRun(`
+                  INSERT INTO queue_swaps (requester_id, target_id, role_type, reason, status, approved_by)
+                  VALUES (?, ?, ?, 'ยื่นขอสลับคิวผ่าน LINE OA', 'PENDING_CONSENT', 'USER')
+                `, [senderPerson.id, targetPerson.id, senderPerson.role_type]);
+
+                const swapId = swapRes.lastID;
+                const { createPeerSwapConsentFlexCard } = require('../services/notification');
+
+                if (process.env.LINE_CHANNEL_ACCESS_TOKEN && targetPerson.line_user_id && targetPerson.line_user_id.toLowerCase() !== 'email') {
+                  try {
+                    const consentCard = createPeerSwapConsentFlexCard(swapId, senderPerson, targetPerson, 'ขอสลับคิวตามความสะดวกในการปฏิบัติงาน');
+                    await axios.post('https://api.line.me/v2/bot/message/push', {
+                      to: targetPerson.line_user_id,
+                      messages: [consentCard]
+                    }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` } });
+                  } catch (e) { console.error('Error pushing swap consent card:', e); }
+                }
+
+                messagesPayload = [{
+                  type: 'text',
+                  text: `📩 ส่งคำขอสลับคิวไปยัง ${targetPerson.name} (${targetPerson.emp_code}) ทาง LINE เรียบร้อยแล้วค่ะ!\n\nเมื่อ ${targetPerson.name} กดยินยอมใน LINE ระบบจะทำการสลับลำดับคิว 2 ทางให้อัตโนมัติทันทีค่ะ`
+                }];
+              }
             }
           }
 
@@ -1745,53 +1797,6 @@ router.post('/line-webhook', async (req, res) => {
                       ? '📩 ส่ง LINE แจ้งเตือนไปยังผู้ปฏิบัติงานแทนแล้วค่ะ'
                       : '⚠️ บันทึกตัวแทนสำเร็จ แต่ส่ง LINE แจ้งเตือนไม่สำเร็จ กรุณาตรวจสอบ Log')
                 }];
-              }
-            } else if (userMessage.startsWith('สลับ ') || userMessage.startsWith('SWAP ')) {
-              const targetQuery = rawText.replace(/^สลับ\s+/i, '').replace(/^SWAP\s+/i, '').trim().toUpperCase();
-              const senderPerson = await dbGet(`SELECT p.*, qm.queue_order FROM personnel p JOIN queue_members qm ON p.id = qm.personnel_id WHERE p.line_user_id = ?`, [lineUserId]);
-              
-              if (!senderPerson) {
-                messagesPayload = [{ type: 'text', text: '❌ ไม่พบบัญชี LINE ของคุณในระบบ กรุณาพิมพ์รหัสพนักงานเพื่อผูกบัญชีก่อนค่ะ (เช่น DIR-01 หรือ EMP-001)' }];
-              } else {
-                const targetPerson = await dbGet(`
-                  SELECT p.*, qm.queue_order 
-                  FROM personnel p 
-                  JOIN queue_members qm ON p.id = qm.personnel_id 
-                  WHERE (UPPER(TRIM(p.emp_code)) = ? OR p.name LIKE ?)
-                `, [targetQuery, `%${targetQuery}%`]);
-
-                if (!targetPerson) {
-                  messagesPayload = [{ type: 'text', text: `❌ ไม่พบข้อมูลเพื่อนพนักงาน "${targetQuery}" ในระบบ กรุณาตรวจสอบรหัสพนักงานอีกครั้งค่ะ` }];
-                } else if (senderPerson.id === targetPerson.id) {
-                  messagesPayload = [{ type: 'text', text: '❌ ไม่สามารถยื่นขอสลับคิวกับตนเองได้ค่ะ' }];
-                } else if (senderPerson.role_type !== targetPerson.role_type) {
-                  messagesPayload = [{ type: 'text', text: '❌ การสลับคิวทำได้เฉพาะบุคลากรในกลุ่มประเภทเดียวกันเท่านั้น (ผอ. สลับกับ ผอ. / พนักงาน สลับกับ พนักงาน)' }];
-                } else if (['DIR-10', 'DIR-09'].includes(senderPerson.emp_code) || ['DIR-10', 'DIR-09'].includes(targetPerson.emp_code)) {
-                  messagesPayload = [{ type: 'text', text: '❌ ตำแหน่งผู้บริหารระดับสูง (DIR-10 และ DIR-09) ไม่เข้าคิวสลับถาวรในระบบค่ะ' }];
-                } else {
-                  const swapRes = await dbRun(`
-                    INSERT INTO queue_swaps (requester_id, target_id, role_type, reason, status, approved_by)
-                    VALUES (?, ?, ?, 'ยื่นขอสลับคิวผ่าน LINE OA', 'PENDING_CONSENT', 'USER')
-                  `, [senderPerson.id, targetPerson.id, senderPerson.role_type]);
-
-                  const swapId = swapRes.lastID;
-                  const { createPeerSwapConsentFlexCard } = require('../services/notification');
-
-                  if (process.env.LINE_CHANNEL_ACCESS_TOKEN && targetPerson.line_user_id && targetPerson.line_user_id.toLowerCase() !== 'email') {
-                    try {
-                      const consentCard = createPeerSwapConsentFlexCard(swapId, senderPerson, targetPerson, 'ขอสลับคิวตามความสะดวกในการปฏิบัติงาน');
-                      await axios.post('https://api.line.me/v2/bot/message/push', {
-                        to: targetPerson.line_user_id,
-                        messages: [consentCard]
-                      }, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` } });
-                    } catch (e) { console.error('Error pushing swap consent card:', e); }
-                  }
-
-                  messagesPayload = [{
-                    type: 'text',
-                    text: `📩 ส่งคำขอสลับคิวไปยัง คุณ ${targetPerson.name} (${targetPerson.emp_code}) ทาง LINE เรียบร้อยแล้วค่ะ!\n\nเมื่อ คุณ ${targetPerson.name} กดยินยอมใน LINE ระบบจะทำการสลับลำดับคิว 2 ทางให้อัตโนมัติทันทีค่ะ`
-                  }];
-                }
               }
             } else {
 
@@ -3011,7 +3016,7 @@ router.post('/queue/peer-swap', async (req, res) => {
 
     try {
       const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-      const swapNoticeText = `🔄 แจ้งเตือนอนุมัติสลับลำดับคิว (Peer Swap)\nระหว่าง คุณ ${q1.name} (#${q1.queue_order} ➔ #${q2.queue_order})\nและ คุณ ${q2.name} (#${q2.queue_order} ➔ #${q1.queue_order})\nเหตุผล: ${reason || '-'}`;
+      const swapNoticeText = `🔄 แจ้งเตือนอนุมัติสลับลำดับคิว (Peer Swap)\nระหว่าง ${q1.name} (#${q1.queue_order} ➔ #${q2.queue_order})\nและ ${q2.name} (#${q2.queue_order} ➔ #${q1.queue_order})\nเหตุผล: ${reason || '-'}`;
 
       if (lineToken && q1.line_user_id && q1.line_user_id.toLowerCase() !== 'email') {
         await axios.post('https://api.line.me/v2/bot/message/push', {
@@ -3032,7 +3037,7 @@ router.post('/queue/peer-swap', async (req, res) => {
 
     res.json({
       success: true,
-      message: `อนุมัติสลับลำดับคิวระหว่าง คุณ${q1.name} และ คุณ${q2.name} เรียบร้อยแล้ว`
+      message: `อนุมัติสลับลำดับคิวระหว่าง   ${q1.name} และ   ${q2.name} เรียบร้อยแล้ว`
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3452,7 +3457,7 @@ router.post('/missions/respond', async (req, res) => {
           : 'ทางอีเมล';
 
         replacementPersonName = nextCandidate.name;
-        replacementMessage = `ระบบได้จัดสรรพนักงานลำดับถัดไปคือ คุณ ${nextCandidate.name} (${nextCandidate.emp_code}) ปฏิบัติงานแทนให้อัตโนมัติแล้ว (ส่งแจ้งเตือน ${channelNotice})`;
+        replacementMessage = `ระบบได้จัดสรรพนักงานลำดับถัดไปคือ    ${nextCandidate.name} (${nextCandidate.emp_code}) ปฏิบัติงานแทนให้อัตโนมัติแล้ว (ส่งแจ้งเตือน ${channelNotice})`;
       } else {
         await checkAndAdvanceRound(assignment.role_type);
         replacementMessage = `ขณะนี้ไม่มีพนักงานในคิวที่สามารถปฏิบัติงานแทนได้ ระบบจึงลงประวัติขอลาไว้เรียบร้อยแล้ว`;
@@ -3752,7 +3757,7 @@ router.post('/line-webhook', async (req, res) => {
         let replyMsg = '';
         if (person) {
           await dbRun(`UPDATE personnel SET line_user_id = ? WHERE id = ?`, [lineUserId, person.id]);
-          replyMsg = `✅ ผูกบัญชีสำเร็จ!\n\nสวัสดีคุณ ${person.name}\nระบบ FMO Smart Queue ได้เชื่อมต่อกับ LINE ของคุณเรียบร้อยแล้วค่ะ`;
+          replyMsg = `✅ ผูกบัญชีสำเร็จ!\n\nสวัสดี   ${person.name}\nระบบ FMO Smart Queue ได้เชื่อมต่อกับ LINE ของ  เรียบร้อยแล้วค่ะ`;
         } else {
           replyMsg = `❌ ไม่พบรหัสพนักงาน "${userText}" ในระบบ\n\nกรุณาพิมพ์รหัสพนักงานใหม่อีกครั้ง เช่น EMP-001 หรือ DIR-01 ค่ะ`;
         }
@@ -4000,7 +4005,7 @@ router.post('/users', async (req, res) => {
       }
 
       await dbRun('COMMIT;');
-      res.json({ success: true, message: `เพิ่มผู้ใช้งาน คุณ${name} (${codeClean}) เรียบร้อยแล้ว` });
+      res.json({ success: true, message: `เพิ่มผู้ใช้งาน   ${name} (${codeClean}) เรียบร้อยแล้ว` });
     } catch (txErr) {
       await dbRun('ROLLBACK;');
       throw txErr;
@@ -4040,7 +4045,7 @@ router.put('/users/:id', async (req, res) => {
       await dbRun(`UPDATE queue_members SET queue_order = ?, role_type = ? WHERE personnel_id = ?`, [parseInt(queue_order), role_type, userId]);
     }
 
-    res.json({ success: true, message: `อัปเดตข้อมูล คุณ${name} เรียบร้อยแล้ว` });
+    res.json({ success: true, message: `อัปเดตข้อมูล   ${name} เรียบร้อยแล้ว` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -4060,7 +4065,7 @@ router.delete('/users/:id', async (req, res) => {
       await dbRun(`DELETE FROM mission_assignments WHERE personnel_id = ?`, [userId]);
       await dbRun(`DELETE FROM personnel WHERE id = ?`, [userId]);
       await dbRun('COMMIT;');
-      res.json({ success: true, message: `ลบผู้ใช้งาน คุณ${person.name} (${person.emp_code}) เรียบร้อยแล้ว` });
+      res.json({ success: true, message: `ลบผู้ใช้งาน   ${person.name} (${person.emp_code}) เรียบร้อยแล้ว` });
     } catch (txErr) {
       await dbRun('ROLLBACK;');
       throw txErr;
@@ -4078,7 +4083,7 @@ router.post('/users/:id/unbind-line', async (req, res) => {
     if (!person) return res.status(404).json({ success: false, error: 'ไม่พบผู้ใช้งานในระบบ' });
 
     await dbRun(`UPDATE personnel SET line_user_id = NULL WHERE id = ?`, [userId]);
-    res.json({ success: true, message: `ยกเลิกการผูกบัญชี LINE OA ของ คุณ${person.name} เรียบร้อยแล้ว` });
+    res.json({ success: true, message: `ยกเลิกการผูกบัญชี LINE OA ของ   ${person.name} เรียบร้อยแล้ว` });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
