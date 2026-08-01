@@ -967,7 +967,8 @@ router.post('/line-webhook', async (req, res) => {
                     backgroundColor: '#dc2626',
                     paddingAll: '14px',
                     contents: [
-                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md' }
+                      { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#fee2e2', size: 'xxs', weight: 'bold' },
+                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
                     ]
                   },
                   body: {
@@ -977,7 +978,7 @@ router.post('/line-webhook', async (req, res) => {
                     spacing: 'md',
                     contents: [
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
-                      { type: 'text', text: `เรียน    ${assignment.name}`, size: 'xs', color: '#64748b' },
+                      { type: 'text', text: `เรียน ${String(assignment.name || '').replace(/^คุณ\s+/i, '')}`, size: 'xs', color: '#64748b' },
                       
                       // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
                       {
@@ -1039,6 +1040,8 @@ router.post('/line-webhook', async (req, res) => {
                   footer: {
                     type: 'box',
                     layout: 'vertical',
+                    spacing: 'sm',
+                    paddingAll: '12px',
                     contents: [
                       {
                         type: 'button',
@@ -1050,6 +1053,14 @@ router.post('/line-webhook', async (req, res) => {
                           data: `NO_SUB|${assignment.mission_id}|${assignment.personnel_id}`,
                           displayText: '🟡 ไม่มีผู้ปฏิบัติงานแทน (ขอลา)'
                         }
+                      },
+                      {
+                        type: 'text',
+                        text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+                        size: 'xxs',
+                        color: '#94a3b8',
+                        align: 'end',
+                        margin: 'xs'
                       }
                     ]
                   }
@@ -1108,7 +1119,8 @@ router.post('/line-webhook', async (req, res) => {
                     backgroundColor: '#dc2626',
                     paddingAll: '14px',
                     contents: [
-                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md' }
+                      { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#fee2e2', size: 'xxs', weight: 'bold' },
+                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
                     ]
                   },
                   body: {
@@ -1118,7 +1130,7 @@ router.post('/line-webhook', async (req, res) => {
                     spacing: 'md',
                     contents: [
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
-                      { type: 'text', text: `เรียน    ${assignment.name}`, size: 'xs', color: '#64748b' },
+                      { type: 'text', text: `เรียน ${String(assignment.name || '').replace(/^คุณ\s+/i, '')}`, size: 'xs', color: '#64748b' },
                       
                       // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
                       {
@@ -1180,6 +1192,8 @@ router.post('/line-webhook', async (req, res) => {
                   footer: {
                     type: 'box',
                     layout: 'vertical',
+                    spacing: 'sm',
+                    paddingAll: '12px',
                     contents: [
                       {
                         type: 'button',
@@ -1191,6 +1205,14 @@ router.post('/line-webhook', async (req, res) => {
                           data: `NO_SUB|${assignment.mission_id}|${assignment.personnel_id}`,
                           displayText: '🟡 ไม่มีผู้ปฏิบัติงานแทน (ขอลา)'
                         }
+                      },
+                      {
+                        type: 'text',
+                        text: 'ระบบตอบกลับข้อความอัตโนมัติ',
+                        size: 'xxs',
+                        color: '#94a3b8',
+                        align: 'end',
+                        margin: 'xs'
                       }
                     ]
                   }
