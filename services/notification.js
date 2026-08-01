@@ -374,6 +374,9 @@ function createPersonalizedFlexCard(
   const fileUrl = mission.attachment_file ? (mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`) : null;
   const fileName = mission.attachment_name || 'ดาวน์โหลดเอกสารกำหนดการ';
 
+  const cleanPersonName = String(person.name || '').replace(/^คุณ\s+/i, '');
+  const cleanSubForName = String(person.substitute_for_name || '').replace(/^คุณ\s+/i, '');
+
   return {
     type: 'flex',
 
@@ -418,7 +421,7 @@ function createPersonalizedFlexCard(
                   type: 'text',
                   text:
                     `👤 ปฏิบัติงานแทน : ` +
-                    `${person.substitute_for_name || '-'}`,
+                    `${cleanSubForName || '-'}`,
                   color: '#ffffff',
                   size: 'xs',
                   weight: 'bold',
@@ -447,7 +450,7 @@ function createPersonalizedFlexCard(
           },
           {
             type: 'text',
-            text: `👤 เรียน: ${person.name || '-'}`,
+            text: `👤 เรียน: ${cleanPersonName || '-'}`,
             size: 'sm',
             color: '#0284c7',
             weight: 'bold',
@@ -720,6 +723,24 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
 
     if (!allDirectors || allDirectors.length === 0) {
       allDirectors = directors;
+    }
+
+    if (!allDirectors || allDirectors.length === 0) {
+      try {
+        const { dbAll } = require('../db/database');
+        allDirectors = await dbAll(`
+          SELECT p.id, p.name, p.position, p.department, p.emp_code
+          FROM queue_members qm
+          JOIN personnel p ON p.id = qm.personnel_id
+          WHERE qm.role_type = 'DIRECTOR' AND qm.status != 'DISABLED'
+          ORDER BY CASE WHEN UPPER(TRIM(p.emp_code)) = 'DIR-10' THEN 1
+                        WHEN UPPER(TRIM(p.emp_code)) = 'DIR-09' THEN 2
+                        ELSE 3 END, qm.queue_order ASC
+          LIMIT 1;
+        `);
+      } catch (e) {
+        console.error('Error fetching fallback director:', e);
+      }
     }
 
     const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;

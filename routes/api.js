@@ -2957,13 +2957,13 @@ router.post('/missions/substitute', async (req, res) => {
     try {
       const missionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [mission_id]);
       if (missionData && substitutePerson) {
+        const cleanOrigName = String(origPerson.name || '').replace(/^คุณ\s+/i, '');
         await sendMissionNotification(missionData, [{
           ...substitutePerson,
           personnel_id: substitutePerson.id,
           role_type: roleType,
           is_leader: isLeader,
-          substitute_for_name: origPerson.name,
-          team_leader_name: '-'
+          substitute_for_name: cleanOrigName
         }], true);
       }
     } catch (notifErr) {
