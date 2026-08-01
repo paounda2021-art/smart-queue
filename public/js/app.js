@@ -800,17 +800,63 @@ window.unholdPerson = unholdPerson;
 // -------------------------------------------------------------
 // EMERGENCY SUBSTITUTION (การเปลี่ยนตัวกะทันหัน)
 // -------------------------------------------------------------
-function openSubstituteModal(missionId, origPersonId, origPersonName) {
+function toggleSubModeUI() {
+  const mode = document.querySelector('input[name="sub_mode"]:checked')?.value || 'AUTO';
+  const manualGroup = document.getElementById('sub-manual-group');
+  if (manualGroup) {
+    manualGroup.style.display = (mode === 'MANUAL') ? 'block' : 'none';
+  }
+}
+
+async function openSubstituteModal(missionId, origPersonId, origPersonName) {
   document.getElementById('sub-mission-id').value = missionId;
   document.getElementById('sub-orig-person-id').value = origPersonId;
   document.getElementById('sub-orig-person-name').innerText = origPersonName;
   document.getElementById('sub-reason').value = '';
+  document.getElementById('sub-auto-preview').innerText = 'กำลังโหลด...';
+
+  const autoRadio = document.querySelector('input[name="sub_mode"][value="AUTO"]');
+  if (autoRadio) autoRadio.checked = true;
+  toggleSubModeUI();
+
+  const select = document.getElementById('sub-manual-select');
+  if (select) select.innerHTML = '<option value="">-- กำลังโหลดรายชื่อพนักงาน --</option>';
+
   openModal('modal-substitute');
+
+  try {
+    const res = await fetch(`/api/missions/substitute-candidates?mission_id=${missionId}&original_personnel_id=${origPersonId}`);
+    const data = await res.json();
+
+    if (data.success) {
+      if (data.auto_candidate) {
+        document.getElementById('sub-auto-preview').innerText = `${data.auto_candidate.name} (${data.auto_candidate.emp_code})`;
+      } else {
+        document.getElementById('sub-auto-preview').innerText = 'ไม่พบบุคลากรสำรองในคิว';
+      }
+
+      if (select) {
+        if (Array.isArray(data.available_candidates) && data.available_candidates.length > 0) {
+          select.innerHTML = '<option value="">-- เลือกพนักงานผู้ปฏิบัติงานแทน --</option>' +
+            data.available_candidates.map(c => `
+              <option value="${c.id}">${escapeHtml(c.name)} (${c.emp_code}) - ${escapeHtml(c.position || '-')} [คิวที่ #${c.queue_order || '-'}]</option>
+            `).join('');
+        } else {
+          select.innerHTML = '<option value="">-- ไม่พบบุคลากรอื่นในกลุ่มเดียวกัน --</option>';
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error loading substitute candidates:', err);
+    document.getElementById('sub-auto-preview').innerText = 'เกิดข้อผิดพลาดในการโหลดข้อมูล';
+  }
 }
 
 async function confirmSubstitution() {
   const missionId = document.getElementById('sub-mission-id').value;
   const origPersonId = document.getElementById('sub-orig-person-id').value;
+  const mode = document.querySelector('input[name="sub_mode"]:checked')?.value || 'AUTO';
+  const substitutePersonnelId = document.getElementById('sub-manual-select')?.value;
   const reason = document.getElementById('sub-reason').value.trim();
 
   if (!reason) {
@@ -818,11 +864,22 @@ async function confirmSubstitution() {
     return;
   }
 
+  if (mode === 'MANUAL' && !substitutePersonnelId) {
+    showToast('กรุณาเลือกพนักงานผู้ปฏิบัติงานแทน', 'warning');
+    return;
+  }
+
   try {
     const res = await fetch('/api/missions/substitute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mission_id: missionId, original_personnel_id: origPersonId, reason })
+      body: JSON.stringify({
+        mission_id: missionId,
+        original_personnel_id: origPersonId,
+        mode: mode,
+        substitute_personnel_id: mode === 'MANUAL' ? substitutePersonnelId : null,
+        reason: reason
+      })
     });
     const result = await res.json();
 
@@ -830,16 +887,25 @@ async function confirmSubstitution() {
       showToast(`🎉 ${result.message}`, 'success');
       closeModal('modal-substitute');
       closeModal('modal-mission-detail');
-      loadAllMissions();
-      loadDashboardStats();
-      previewCandidates();
+      if (typeof refreshAllSystemData === 'function') {
+        refreshAllSystemData();
+      } else {
+        loadAllMissions();
+        loadDashboardStats();
+        previewCandidates();
+      }
     } else {
       showToast(`Error: ${result.error}`, 'danger');
     }
   } catch (err) {
     console.error('Substitution error:', err);
+    showToast('เกิดข้อผิดพลาดในการเปลี่ยนตัว', 'danger');
   }
 }
+
+window.toggleSubModeUI = toggleSubModeUI;
+window.openSubstituteModal = openSubstituteModal;
+window.confirmSubstitution = confirmSubstitution;
 
 async function loadDirectorSelectList() {
   const container = document.getElementById('director-select-list');
@@ -1956,51 +2022,21 @@ else if (a.notes) {
         }
 
         // ---------------------------------------------------
-        // ปุ่มดำเนินการ
-        //
-        // แสดงเฉพาะแถว JOINED ที่ยังรอการตอบรับ
-        // เมื่อรับทราบแล้วจะไม่แสดงปุ่มซ้ำ
+        // ปุ่มดำเนินการ (เปลี่ยนตัวฉุกเฉิน / ตอบรับ)
         // ---------------------------------------------------
         let actionBtn = '-';
 
-        if (
-          assignmentStatus === 'JOINED' &&
-          ackStatus !== 'ACKNOWLEDGED'
-        ) {
+        if (assignmentStatus === 'JOINED') {
+          const safeName = String(a.name || '').replace(/'/g, "\\'");
           actionBtn = `
-            <div
-              style="
-                display:flex;
-                gap:4px;
-                flex-wrap:wrap;
-              "
-            >
-              <button
-                class="btn btn-primary btn-sm"
-                onclick="
-                  respondToMission(
-                    ${mission.id},
-                    ${a.personnel_id},
-                    'ACKNOWLEDGED'
-                  )
-                "
-              >
-                <i class="fa-solid fa-check"></i>
-                รับทราบ
-              </button>
-
-              <button
-                class="btn btn-warning btn-sm"
-                onclick="
-                  respondToMission(
-                    ${mission.id},
-                    ${a.personnel_id},
-                    'DECLINED_BUSY'
-                  )
-                "
-              >
-                <i class="fa-solid fa-pause"></i>
-                ติดภารกิจ
+            <div style="display:flex; gap:4px; flex-wrap:wrap;">
+              ${ackStatus !== 'ACKNOWLEDGED' ? `
+                <button class="btn btn-primary btn-sm" onclick="respondToMission(${mission.id}, ${a.personnel_id}, 'ACKNOWLEDGED')">
+                  <i class="fa-solid fa-check"></i> รับทราบ
+                </button>
+              ` : ''}
+              <button class="btn btn-warning btn-sm" onclick="openSubstituteModal(${mission.id}, ${a.personnel_id}, '${safeName}')">
+                <i class="fa-solid fa-rotate"></i> เปลี่ยนตัว
               </button>
             </div>
           `;

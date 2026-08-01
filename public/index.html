@@ -759,7 +759,7 @@
 
   <!-- EMERGENCY SUBSTITUTION MODAL -->
   <div id="modal-substitute" class="modal-overlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 560px;">
       <div class="modal-header">
         <div class="modal-title"><i class="fa-solid fa-user-gear text-amber"></i> เปลี่ยนตัวกะทันหัน (Emergency Substitution)</div>
         <button class="modal-close" onclick="closeModal('modal-substitute')">&times;</button>
@@ -767,19 +767,41 @@
 
       <div class="modal-body">
         <p style="font-size: 0.9rem; color: var(--text-heading); margin-bottom: 1rem;">
-          ต้องการเปลี่ยนตัวให้บุคคลอื่นทำแทน: <strong id="sub-orig-person-name" style="color: var(--danger);">-</strong>
+          ต้องการเปลี่ยนตัวพนักงาน: <strong id="sub-orig-person-name" style="color: var(--danger);">-</strong>
         </p>
 
         <input type="hidden" id="sub-mission-id">
         <input type="hidden" id="sub-orig-person-id">
 
         <div class="form-group">
-          <label>เหตุผลการขอเปลี่ยนตัว *</label>
-          <input type="text" id="sub-reason" class="form-control" placeholder="เช่น ลาป่วย / ลากิจกะทันหัน">
+          <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">รูปแบบการเลือกตัวแทน *</label>
+          <div style="display: flex; flex-direction: column; gap: 0.65rem; margin-bottom: 1rem; background: var(--bg-card); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.88rem; font-weight: 500;">
+              <input type="radio" name="sub_mode" value="AUTO" checked onchange="toggleSubModeUI()">
+              <span>🔄 ดึงคิวต่อไปอัตโนมัติ (Auto) : <strong id="sub-auto-preview" style="color: var(--primary);">กำลังโหลด...</strong></span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.88rem; font-weight: 500;">
+              <input type="radio" name="sub_mode" value="MANUAL" onchange="toggleSubModeUI()">
+              <span>👤 ระบุพนักงานโดยตรง (Manual)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="sub-manual-group" style="display: none;">
+          <label style="font-weight: 600;">เลือกพนักงานผู้ปฏิบัติงานแทน *</label>
+          <select id="sub-manual-select" class="form-control">
+            <option value="">-- กำลังโหลดรายชื่อพนักงาน --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight: 600;">เหตุผลการขอเปลี่ยนตัว *</label>
+          <input type="text" id="sub-reason" class="form-control" placeholder="เช่น ลาป่วยกระทันหัน / ติดภารกิจด่วน">
         </div>
 
         <div style="background: var(--primary-light); border: 1px solid rgba(2, 132, 199, 0.3); padding: 0.85rem; border-radius: 8px; font-size: 0.82rem; color: var(--accent);">
-          <i class="fa-solid fa-circle-info"></i> ระบบจะดึงพนักงานคิวถัดไปใน Round นั้นเข้ามาทำแทนทันที พร้อมบันทึกประวัติ <em>"ปฏิบัติงานแทน [ชื่อเดิม]"</em> โดยไม่ทำให้สถิติรอบเสีย
+          <i class="fa-solid fa-paper-plane"></i> เมื่อยืนยันการเปลี่ยนตัว ระบบจะปลดพนักงานเดิม และส่ง <strong>LINE Flex Card การ์ดแจ้งเตือนเข้าปฏิบัติงานด่วน</strong> ไปยังพนักงานคนใหม่ทันที
         </div>
       </div>
 

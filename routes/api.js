@@ -2793,10 +2793,11 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
 // -------------------------------------------------------------
 // 5. EMERGENCY SUBSTITUTION (การเปลี่ยนตัวกะทันหัน)
 // -------------------------------------------------------------
-/* router.post('/missions/substitute', async (req, res) => {
-  try {
-    const { mission_id, original_personnel_id, reason } = req.body;
 
+// GET /api/missions/substitute-candidates - ดึงข้อมูลพนักงานถัดไปและรายชื่อพนักงานทั้งหมดในกลุ่มเพื่อใช้ใน Modal เปลี่ยนตัว
+router.get('/missions/substitute-candidates', async (req, res) => {
+  try {
+    const { mission_id, original_personnel_id } = req.query;
     if (!mission_id || !original_personnel_id) {
       return res.status(400).json({ success: false, error: 'mission_id and original_personnel_id are required' });
     }
@@ -2806,123 +2807,183 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
 
     const roleType = origPerson.role_type;
 
-    const substitute = await dbGet(
-      `SELECT qm.*, p.name, p.emp_code 
+    // ดึงรายชื่อ ID ที่ถูกจัดสรรในกิจกรรมนี้อยู่แล้ว (เพื่อไม่ให้เลือกซ้ำ)
+    const existingAssigned = await dbAll(
+      `SELECT personnel_id FROM mission_assignments WHERE mission_id = ? AND assignment_status IN ('JOINED', 'BUSY_PENDING');`,
+      [mission_id]
+    );
+    const excludeIds = existingAssigned.map(a => a.personnel_id);
+    if (!excludeIds.includes(Number(original_personnel_id))) {
+      excludeIds.push(Number(original_personnel_id));
+    }
+
+    // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto)
+    const autoCandidate = await dbGet(
+      `SELECT qm.*, p.name, p.emp_code, p.department, p.position 
        FROM queue_members qm
        JOIN personnel p ON qm.personnel_id = p.id
-       WHERE qm.role_type = ? AND qm.status IN ('HOLD', 'WAITING') AND qm.personnel_id != ?
+       WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
        ORDER BY CASE qm.status WHEN 'HOLD' THEN 1 WHEN 'WAITING' THEN 2 END, qm.queue_order ASC
        LIMIT 1;`,
-      [roleType, original_personnel_id]
+      [roleType]
     );
 
-    if (!substitute) {
-      return res.status(400).json({ success: false, error: 'ไม่พบบุคลากรสำรองในคิวที่สามารถปฏิบัติงานแทนได้' });
-    }
-
-    await dbRun(
-      `UPDATE mission_assignments 
-       SET assignment_status = 'SUBSTITUTED', notes = ?
-       WHERE mission_id = ? AND personnel_id = ?;`,
-      [`เปลี่ยนตัวเนื่องจาก: ${reason || 'ลาป่วย/ลากิจ'}`, mission_id, original_personnel_id]
+    // 2. ดึงรายชื่อพนักงานทั้งหมดในกลุ่มเดียวกัน (Manual Selection)
+    const availablePersonnel = await dbAll(
+      `SELECT p.id, p.name, p.emp_code, p.department, p.position, qm.queue_order, qm.status AS queue_status
+       FROM personnel p
+       LEFT JOIN queue_members qm ON p.id = qm.personnel_id
+       WHERE p.role_type = ? AND p.id NOT IN (${excludeIds.join(',')})
+       ORDER BY p.name ASC;`,
+      [roleType]
     );
-
-    await dbRun(
-      `UPDATE queue_members 
-       SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP 
-       WHERE personnel_id = ?;`,
-      [`เปลี่ยนตัวในกิจกรรม #${mission_id} (${reason || 'ลาป่วย/ลากิจ'})`, original_personnel_id]
-    );
-
-    const state = await dbGet(`SELECT current_round FROM queue_state WHERE role_type = ?;`, [roleType]);
-    const currentRound = state ? state.current_round : 1;
-
-    await dbRun(
-      `INSERT INTO mission_assignments (mission_id, personnel_id, role_type, assigned_round, is_leader, assignment_status, substituted_for_personnel_id, notes)
-       VALUES (?, ?, ?, ?, ?, 'JOINED', ?, ?);`,
-      [
-        mission_id,
-        substitute.personnel_id,
-        roleType,
-        currentRound,
-        roleType === 'DIRECTOR' ? 1 : 0,
-        original_personnel_id,
-        `ปฏิบัติงานแทน ${origPerson.name} (${origPerson.emp_code})`
-      ]
-    );
-
-    await dbRun(
-      `UPDATE queue_members 
-       SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
-       WHERE personnel_id = ?;`,
-      [substitute.personnel_id]
-    );
-
-    // 🚀 เพิ่มส่วนส่งแจ้งเตือน LINE / Email ไปยังพนักงานตัวแทนที่ถูกเลือกโดยอัตโนมัติ
-    try {
-      const missionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [mission_id]);
-      const substitutePerson = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [substitute.personnel_id]);
-      await dbRun(
-      `UPDATE queue_members 
-       SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
-       WHERE personnel_id = ?;`,
-      [substitute.personnel_id]
-    );
-
-    // ==========================================
-    // 📌 นำโค้ด DEBUG แจ้งเตือนมาวางแทรกไว้ตรงนี้ครับ!
-    // ==========================================
-    try {
-      const missionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [mission_id]);
-      const substitutePerson = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [substitute.personnel_id]);
-      
-      console.log("🔍 [DEBUG] missionData:", missionData);
-      console.log("🔍 [DEBUG] substitutePerson:", substitutePerson);
-
-      if (missionData && substitutePerson) {
-        console.log("🟢 [DEBUG] กำลังสั่งยิง sendMissionNotification...");
-        await sendMissionNotification(missionData, [substitutePerson], true);
-        console.log("✅ [DEBUG] ส่งแจ้งเตือน LINE สำเร็จเรียบร้อย!");
-      } else {
-        console.log("⚠️ [DEBUG] ข้อมูล missionData หรือ substitutePerson ไม่ครบถ้วน");
-      }
-    } catch (notifErr) {
-      console.error('❌ [DEBUG] Error catching notification:', notifErr);
-    }
-    // ==========================================
-
-    // จากนั้นจะเป็นคำสั่ง res.json เดิมที่มีอยู่แล้ว
-    res.json({
-      success: true,
-      message: `เปลี่ยนตัวเรียบร้อยแล้ว: ${substitute.name} ได้รับจัดสรรปฏิบัติงานแทน ${origPerson.name}`,
-      substitute: {
-        id: substitute.personnel_id,
-        name: substitute.name,
-        emp_code: substitute.emp_code
-      }
-    });
-      if (missionData && substitutePerson) {
-        // ส่งแจ้งเตือนแบบระบุตัวแทน (isReallocation = true เพื่อขึ้นหัวข้อสีส้มเตือนด่วน)
-        await sendMissionNotification(missionData, [substitutePerson], true);
-      }
-    } catch (notifErr) {
-      console.error('Error sending substitution notification:', notifErr);
-      // ป้องกันไม่ให้ข้อผิดพลาดจากการส่งแจ้งเตือนมาขัดขวางการตอบกลับหลักของ API
-    }
 
     res.json({
       success: true,
-      message: `เปลี่ยนตัวเรียบร้อยแล้ว: ${substitute.name} ได้รับจัดสรรปฏิบัติงานแทน ${origPerson.name}`,
-      substitute: {
-        id: substitute.personnel_id,
-        name: substitute.name,
-        emp_code: substitute.emp_code
-      }
+      role_type: roleType,
+      auto_candidate: autoCandidate ? {
+        id: autoCandidate.personnel_id,
+        name: autoCandidate.name,
+        emp_code: autoCandidate.emp_code
+      } : null,
+      available_candidates: availablePersonnel
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});*/
+});
+
+// POST /api/missions/substitute - ดำเนินการเปลี่ยนตัวพนักงานกะทันหัน
+router.post('/missions/substitute', async (req, res) => {
+  try {
+    const { mission_id, original_personnel_id, mode, substitute_personnel_id, reason } = req.body;
+
+    if (!mission_id || !original_personnel_id) {
+      return res.status(400).json({ success: false, error: 'mission_id and original_personnel_id are required' });
+    }
+
+    const origPerson = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [original_personnel_id]);
+    if (!origPerson) return res.status(404).json({ success: false, error: 'ไม่พบบุคลากรเดิม' });
+
+    const roleType = origPerson.role_type;
+    let targetSubstituteId = substitute_personnel_id;
+
+    if (mode === 'AUTO' || !targetSubstituteId) {
+      const existingAssigned = await dbAll(
+        `SELECT personnel_id FROM mission_assignments WHERE mission_id = ? AND assignment_status IN ('JOINED', 'BUSY_PENDING');`,
+        [mission_id]
+      );
+      const excludeIds = existingAssigned.map(a => a.personnel_id);
+      if (!excludeIds.includes(Number(original_personnel_id))) {
+        excludeIds.push(Number(original_personnel_id));
+      }
+
+      const autoCandidate = await dbGet(
+        `SELECT qm.personnel_id 
+         FROM queue_members qm
+         WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
+         ORDER BY CASE qm.status WHEN 'HOLD' THEN 1 WHEN 'WAITING' THEN 2 END, qm.queue_order ASC
+         LIMIT 1;`,
+        [roleType]
+      );
+
+      if (!autoCandidate) {
+        return res.status(400).json({ success: false, error: 'ไม่พบบุคลากรสำรองในคิวที่สามารถปฏิบัติงานแทนได้' });
+      }
+      targetSubstituteId = autoCandidate.personnel_id;
+    }
+
+    const substitutePerson = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [targetSubstituteId]);
+    if (!substitutePerson) {
+      return res.status(404).json({ success: false, error: 'ไม่พบข้อมูลบุคลากรที่จะปฏิบัติงานแทน' });
+    }
+
+    const reasonText = reason || 'เหตุฉุกเฉินกะทันหัน';
+
+    // 1. ปลดพนักงานคนเดิมออกใน mission_assignments
+    await dbRun(
+      `UPDATE mission_assignments 
+       SET assignment_status = 'SUBSTITUTED', 
+           ack_status = 'DECLINED_BUSY',
+           decline_reason = ?,
+           notes = ?,
+           ack_at = CURRENT_TIMESTAMP
+       WHERE mission_id = ? AND personnel_id = ? AND assignment_status IN ('JOINED', 'BUSY_PENDING');`,
+      [`เปลี่ยนตัวกะทันหัน: ${reasonText}`, `เปลี่ยนตัวให้ ${substitutePerson.name} (${substitutePerson.emp_code}) ปฏิบัติงานแทน`, mission_id, original_personnel_id]
+    );
+
+    // 2. ปรับสถานะพนักงานเดิมในคิวเป็น HOLD
+    await dbRun(
+      `UPDATE queue_members 
+       SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP 
+       WHERE personnel_id = ?;`,
+      [`เปลี่ยนตัวกะทันหันในกิจกรรม #${mission_id} (${reasonText})`, original_personnel_id]
+    );
+
+    // 3. ดึง round ปัจจุบันและบทบาทหัวหน้า
+    const state = await dbGet(`SELECT current_round FROM queue_state WHERE role_type = ?;`, [roleType]);
+    const currentRound = state ? state.current_round : 1;
+
+    const origAssignment = await dbGet(
+      `SELECT is_leader FROM mission_assignments WHERE mission_id = ? AND personnel_id = ?;`,
+      [mission_id, original_personnel_id]
+    );
+    const isLeader = origAssignment ? origAssignment.is_leader : (roleType === 'DIRECTOR' ? 1 : 0);
+
+    // 4. เพิ่มพนักงานตัวแทนคนใหม่เข้ากิจกรรม
+    await dbRun(
+      `INSERT INTO mission_assignments (mission_id, personnel_id, role_type, assigned_round, is_leader, assignment_status, substituted_for_personnel_id, ack_status, notes)
+       VALUES (?, ?, ?, ?, ?, 'JOINED', ?, 'PENDING_ACK', ?);`,
+      [
+        mission_id,
+        substitutePerson.id,
+        roleType,
+        currentRound,
+        isLeader,
+        original_personnel_id,
+        `ปฏิบัติงานแทน ${origPerson.name} (${origPerson.emp_code || '-'})`
+      ]
+    );
+
+    // 5. อัปเดตสถานะคิวของตัวแทนคนใหม่เป็น COMPLETED
+    await dbRun(
+      `UPDATE queue_members 
+       SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+       WHERE personnel_id = ?;`,
+      [substitutePerson.id]
+    );
+
+    // 6. ส่ง LINE Notification การ์ดด่วน (isReallocation = true) ไปยังพนักงานคนใหม่ทันที
+    try {
+      const missionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [mission_id]);
+      if (missionData && substitutePerson) {
+        await sendMissionNotification(missionData, [{
+          ...substitutePerson,
+          personnel_id: substitutePerson.id,
+          role_type: roleType,
+          is_leader: isLeader,
+          substitute_for_name: origPerson.name,
+          team_leader_name: '-'
+        }], true);
+      }
+    } catch (notifErr) {
+      console.error('Error sending emergency substitution LINE notification:', notifErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `เปลี่ยนตัวเรียบร้อยแล้ว: ${substitutePerson.name} ได้รับจัดสรรปฏิบัติงานแทน ${origPerson.name}`,
+      substitute: {
+        id: substitutePerson.id,
+        name: substitutePerson.name,
+        emp_code: substitutePerson.emp_code
+      }
+    });
+  } catch (err) {
+    console.error('Error in /missions/substitute:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // -------------------------------------------------------------
 // 6. SKIP & UNHOLD QUEUE CONTROLS
