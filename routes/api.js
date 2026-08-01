@@ -814,7 +814,9 @@ router.post('/line-webhook', async (req, res) => {
                 }];
               }
               else {
-                if (assignment.ack_status !== 'ACKNOWLEDGED') {
+                const isAlreadyAck = (assignment.ack_status === 'ACKNOWLEDGED');
+
+                if (!isAlreadyAck) {
                   await dbRun(
                     `
                     UPDATE mission_assignments
@@ -829,27 +831,47 @@ router.post('/line-webhook', async (req, res) => {
                   await checkAndUpdateMissionStatus(assignment.mission_id);
                 }
 
-                const missionDescription = String(
-                  assignment.description || ''
-                ).trim();
+                if (isAlreadyAck) {
+                  replyMessages = [{
+                    type: 'text',
+                    text: `ℹ️ ท่านได้กดรับทราบกิจกรรมนี้แล้วค่ะ ขอบคุณค่ะ 🙏`
+                  }];
+                } else {
+                  const missionDescription = String(
+                    assignment.description || ''
+                  ).trim();
 
-                const timeStr = (assignment.start_date && assignment.end_date)
-                  ? `${formatDate24h(assignment.start_date)} - ${formatDate24h(assignment.end_date)}`
-                  : '-';
+                  const timeStr = (assignment.start_date && assignment.end_date)
+                    ? `${formatDate24h(assignment.start_date)} - ${formatDate24h(assignment.end_date)}`
+                    : '-';
 
-                const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '');
-                let fileUrl = null;
-                if (assignment.attachment_file) {
-                  const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
-                  const baseUrl = rawBaseUrl.replace(/\/app$/, '');
-                  fileUrl = assignment.attachment_file.startsWith('http')
-                    ? assignment.attachment_file
-                    : `${baseUrl}${assignment.attachment_file}`;
-                }
+                  const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '');
+                  let fileUrl = null;
+                  if (assignment.attachment_file) {
+                    const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
+                    const baseUrl = rawBaseUrl.replace(/\/app$/, '');
+                    fileUrl = assignment.attachment_file.startsWith('http')
+                      ? assignment.attachment_file
+                      : `${baseUrl}${assignment.attachment_file}`;
+                  }
 
-                if (fileUrl) {
-                  replyMessages = [
-                    {
+                  if (fileUrl) {
+                    replyMessages = [
+                      {
+                        type: 'text',
+                        text:
+                          `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
+                          `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
+                          `📍 สถานที่: ${assignment.location || '-'}\n` +
+                          `⏰ เวลา (24 ชม.): ${timeStr}\n` +
+                          `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
+                          `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
+                          `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n` +
+                          `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                      }
+                    ];
+                  } else {
+                    replyMessages = [{
                       type: 'text',
                       text:
                         `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
@@ -858,22 +880,9 @@ router.post('/line-webhook', async (req, res) => {
                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                         `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                         `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                        `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n` +
-                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
-                    }
-                  ];
-                } else {
-                  replyMessages = [{
-                    type: 'text',
-                    text:
-                      `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
-                      `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
-                      `📍 สถานที่: ${assignment.location || '-'}\n` +
-                      `⏰ เวลา (24 ชม.): ${timeStr}\n` +
-                      `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
-                      `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                      `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
-                  }];
+                        `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                    }];
+                  }
                 }
               }
             }
