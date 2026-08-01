@@ -1452,10 +1452,12 @@ async function handleCreateMission(event) {
     return;
   }
 
-  // 💡 ตรวจสอบและอัปโหลดไฟล์แนบเอกสารกำหนดการ (ถ้ามี)
+  // 💡 ตรวจสอบไฟล์อัปโหลด หรือ ลิงก์แชร์เอกสาร (ถ้ามี)
   let attachmentUrl = '';
   let attachmentName = '';
   const fileInput = document.getElementById('alloc-attachment-file');
+  const urlInput = document.getElementById('alloc-attachment-url')?.value.trim();
+
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const formData = new FormData();
     formData.append('attachment', fileInput.files[0]);
@@ -1473,6 +1475,9 @@ async function handleCreateMission(event) {
     } catch (e) {
       console.error('File upload error:', e);
     }
+  } else if (urlInput) {
+    attachmentUrl = urlInput;
+    attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
   }
 
   try {
@@ -3192,9 +3197,17 @@ async function openEditScheduleModal(missionId) {
   }
 
   const curFileDiv = document.getElementById('edit-schedule-current-file');
+  const urlEl = document.getElementById('edit-schedule-url');
+  if (urlEl) urlEl.value = '';
+
   if (curFileDiv) {
     if (m.attachment_file) {
-      curFileDiv.innerHTML = `<i class="fa-solid fa-paperclip"></i> ไฟล์แนบปัจจุบัน: <a href="${m.attachment_file}" target="_blank" style="text-decoration:underline;">${escapeHtml(m.attachment_name || 'ดาวน์โหลดเอกสาร')}</a>`;
+      if (m.attachment_file.startsWith('http')) {
+        if (urlEl) urlEl.value = m.attachment_file;
+        curFileDiv.innerHTML = `<i class="fa-solid fa-link"></i> ลิงก์แชร์ปัจจุบัน: <a href="${m.attachment_file}" target="_blank" style="text-decoration:underline; color:#0284c7;">${escapeHtml(m.attachment_file)}</a>`;
+      } else {
+        curFileDiv.innerHTML = `<i class="fa-solid fa-paperclip"></i> ไฟล์แนบปัจจุบัน: <a href="${m.attachment_file}" target="_blank" style="text-decoration:underline;">${escapeHtml(m.attachment_name || 'ดาวน์โหลดเอกสาร')}</a>`;
+      }
     } else {
       curFileDiv.innerHTML = '';
     }
@@ -3218,6 +3231,8 @@ async function saveScheduleChanges(e) {
   let attachmentName = null;
 
   const fileInput = document.getElementById('edit-schedule-file');
+  const urlInput = document.getElementById('edit-schedule-url')?.value.trim();
+
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const formData = new FormData();
     formData.append('attachment', fileInput.files[0]);
@@ -3235,6 +3250,9 @@ async function saveScheduleChanges(e) {
     } catch (err) {
       console.error('Upload new file error:', err);
     }
+  } else if (urlInput) {
+    attachmentUrl = urlInput;
+    attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
   }
 
   showToast('กำลังบันทึกและส่งแจ้งเตือนเปลี่ยนแปลงกำหนดการทาง LINE...', 'info');

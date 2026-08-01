@@ -168,10 +168,19 @@
 
               <div class="form-group" style="margin-top: 0.85rem; background: #f0f9ff; border: 1.5px dashed #0284c7; padding: 12px 16px; border-radius: 10px;">
                 <label style="font-size: 0.88rem; font-weight: 700; color: #0369a1; display: flex; align-items: center; gap: 6px;">
-                  <i class="fa-solid fa-paperclip" style="font-size: 1.1rem; color: #0284c7;"></i> แนบไฟล์เอกสารกำหนดการ (PDF, Word, รูปภาพ)
+                  <i class="fa-solid fa-paperclip" style="font-size: 1.1rem; color: #0284c7;"></i> แนบไฟล์เอกสารกำหนดการ หรือ ลิงก์แชร์เอกสาร (Google Drive / OneDrive / URL)
                 </label>
-                <input type="file" id="alloc-attachment-file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style="margin-top: 6px; background: #ffffff; cursor: pointer;">
-                <small style="color: #0369a1; font-size: 0.78rem; display: block; margin-top: 4px;">📌 รองรับไฟล์ PDF, Word (.doc, .docx) หรือไฟล์รูปภาพ (ขนาดไม่เกิน 25MB)</small>
+                <div style="margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                  <div>
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #0369a1;">📁 อัปโหลดไฟล์จากเครื่อง:</label>
+                    <input type="file" id="alloc-attachment-file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.zip,.rar" style="margin-top: 4px; background: #ffffff; cursor: pointer;">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #0369a1;">🔗 หรือใส่ลิงก์แชร์เอกสาร (URL):</label>
+                    <input type="url" id="alloc-attachment-url" class="form-control" placeholder="https://drive.google.com/..." style="margin-top: 4px; background: #ffffff;">
+                  </div>
+                </div>
+                <small style="color: #0369a1; font-size: 0.78rem; display: block; margin-top: 6px;">📌 สามารถอัปโหลดไฟล์จากเครื่อง หรือวางลิงก์แชร์เอกสาร (เช่น Google Drive, OneDrive, SharePoint) ได้โดยตรง</small>
               </div>
 
             </div>
@@ -905,9 +914,18 @@
 
           <div class="form-group" style="margin-bottom: 1.25rem; background: #fff7ed; border: 1.5px dashed #ea580c; padding: 12px 16px; border-radius: 10px;">
             <label style="font-size: 0.88rem; font-weight: 700; color: #c2410c; display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-paperclip" style="font-size: 1.1rem; color: #ea580c;"></i> แนบไฟล์กำหนดการใหม่ (PDF, Word, รูปภาพ)
+              <i class="fa-solid fa-paperclip" style="font-size: 1.1rem; color: #ea580c;"></i> แนบไฟล์กำหนดการใหม่ หรือ ใส่ลิงก์แชร์เอกสาร (Google Drive / URL)
             </label>
-            <input type="file" id="edit-schedule-file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" style="margin-top: 6px; background: #ffffff; cursor: pointer;">
+            <div style="margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="font-size: 0.8rem; font-weight: 600; color: #c2410c;">📁 อัปโหลดไฟล์ใหม่:</label>
+                <input type="file" id="edit-schedule-file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,.zip,.rar" style="margin-top: 4px; background: #ffffff; cursor: pointer;">
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; font-weight: 600; color: #c2410c;">🔗 หรือใส่ลิงก์แชร์เอกสาร (URL):</label>
+                <input type="url" id="edit-schedule-url" class="form-control" placeholder="https://drive.google.com/..." style="margin-top: 4px; background: #ffffff;">
+              </div>
+            </div>
             <div id="edit-schedule-current-file" style="margin-top: 6px; font-size: 0.82rem; color: #c2410c; font-weight: 600;"></div>
           </div>
 
