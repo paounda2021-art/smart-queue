@@ -2,3 +2,6 @@ node_modules/
 .env
 *.pdf
 *.db
+*.xlsx
+scratch/
+public/uploads/

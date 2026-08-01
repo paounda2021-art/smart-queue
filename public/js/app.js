@@ -668,7 +668,7 @@ async function loadQueueView(roleType) {
 
         if (m.status === 'HOLD') {
           statusBadge = `<span class="badge badge-hold"><i class="fa-solid fa-pause"></i> HOLD (ค้างสิทธิ์)</span><br><small style="color:var(--warning);">${escapeHtml(m.hold_reason || '')}</small>`;
-          actions = `<button class="btn btn-primary btn-sm" onclick="unholdPerson(${m.personnel_id})"><i class="fa-solid fa-play"></i> คืนสิทธิ์ปกติ</button>`;
+          actions = `<button class="btn btn-primary btn-sm" onclick="unholdPerson(${m.personnel_id}, this)"><i class="fa-solid fa-play"></i> คืนสิทธิ์ปกติ</button>`;
         } else if (m.status === 'COMPLETED') {
           statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-check"></i> COMPLETED</span>';
           actions = `<span style="color:var(--text-muted); font-size:0.8rem;">ปฏิบัติกิจกรรมในรอบนี้แล้ว</span>`;
@@ -743,9 +743,30 @@ async function confirmSkipHold() {
   }
 }
 
-async function unholdPerson(personnelId) {
+async function unholdPerson(personnelId, btnElem) {
   try {
     const pId = Number.parseInt(personnelId, 10);
+
+    // ⚡ Instant Optimistic UI Update: ค้นหา row แล้วเปลี่ยนเฉพาะเซลล์สถานะและเซลล์ปุ่มทันที
+    let targetRow = null;
+    if (btnElem && btnElem.closest) {
+      targetRow = btnElem.closest('tr');
+    }
+
+    if (targetRow) {
+      // เซลล์สถานะคืนค่า WAITING ทันที
+      const statusCell = targetRow.querySelector('.badge-hold')?.closest('td');
+      // เซลล์ปุ่ม action (คลาส no-print)
+      const actionCell = targetRow.querySelector('td.no-print');
+
+      if (statusCell) {
+        statusCell.innerHTML = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> WAITING (รอคิว)</span>';
+      }
+      if (actionCell) {
+        actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="openSkipModal(${pId}, '')"><i class="fa-solid fa-pause"></i> ข้ามคิว (Hold)</button>`;
+      }
+    }
+
     const res = await fetch('/api/queue/unhold', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -754,16 +775,24 @@ async function unholdPerson(personnelId) {
     const result = await res.json();
 
     if (result.success) {
-      await loadQueueView(currentQueueRole);
-      if (typeof loadDashboardStats === 'function') loadDashboardStats();
-      if (typeof previewCandidates === 'function') previewCandidates();
       showToast('🎉 คืนสิทธิ์ให้บุคลากรกลับสู่สถานะรอคิวปกติเรียบร้อยแล้ว', 'success');
+      // โหลดตารางใหม่ 1 ครั้งในพื้นหลัง (ไม่กะพริบ)
+      setTimeout(async () => {
+        if (typeof loadQueueView === 'function') {
+          await loadQueueView(currentQueueRole || 'DIRECTOR');
+        }
+        if (typeof loadDashboardStats === 'function') loadDashboardStats();
+        if (typeof previewCandidates === 'function') previewCandidates();
+      }, 500);
     } else {
       showToast(`Error: ${result.error}`, 'danger');
+      // กรณีผิดพลาดให้โหลดใหม่ทันทีเพื่อย้อน UI
+      if (typeof loadQueueView === 'function') loadQueueView(currentQueueRole);
     }
   } catch (err) {
     console.error('Unhold error:', err);
     showToast('เกิดข้อผิดพลาดในการคืนสิทธิ์', 'danger');
+    if (typeof loadQueueView === 'function') loadQueueView(currentQueueRole);
   }
 }
 window.unholdPerson = unholdPerson;

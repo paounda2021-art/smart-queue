@@ -2942,17 +2942,16 @@ router.post('/queue/skip', async (req, res) => {
 
 router.post('/queue/unhold', async (req, res) => {
   try {
-    const { personnel_id } = req.body;
-    if (!personnel_id) return res.status(400).json({ success: false, error: 'personnel_id is required' });
-
-    const targetId = Number.parseInt(personnel_id, 10);
+    const { personnel_id, id } = req.body;
+    const targetId = Number.parseInt(personnel_id || id, 10);
+    if (!targetId) return res.status(400).json({ success: false, error: 'personnel_id is required' });
 
     // 1. อัปเดตตาราง queue_members ให้สถานะกลับเป็น WAITING และล้าง hold_reason
     await dbRun(
       `UPDATE queue_members 
        SET status = 'WAITING', hold_reason = NULL, hold_timestamp = NULL 
-       WHERE personnel_id = ? OR personnel_id = CAST(? AS TEXT);`,
-      [targetId, personnel_id]
+       WHERE personnel_id = ? OR id = ?;`,
+      [targetId, targetId]
     );
 
     // 2. อัปเดตภารกิจคงค้าง BUSY_PENDING ของคนนี้ ให้พ้นจากสถานะรอดำเนินการ
