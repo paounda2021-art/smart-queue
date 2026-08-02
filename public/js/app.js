@@ -1872,7 +1872,7 @@ function renderMissionsTable(list) {
 
 
     const creatorName = m.created_by || 'ผู้ดูแลระบบ';
-    const createdAtFormatted = formatDate24h(m.created_at || m.start_date);
+    const createdAtFormatted = formatDate(m.created_at || m.start_date);
 
     html += `
       <tr style="cursor: pointer;" onclick="openMissionDetailModal(${m.id})" title="คลิกเพื่อดูรายละเอียดและเปลี่ยนตัว">
@@ -1955,7 +1955,7 @@ async function openMissionDetailModal(missionId) {
     currentActiveMissionData = mission;
 
     const creatorName = mission.created_by || 'ผู้ดูแลระบบ';
-    const createdAtFormatted = formatDate24h(mission.created_at || mission.start_date);
+    const createdAtFormatted = formatDate(mission.created_at || mission.start_date);
 
     document.getElementById('md-title').innerHTML = `
       <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-heading);">${escapeHtml(mission.mission_title)}</div>
