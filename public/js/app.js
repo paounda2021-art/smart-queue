@@ -1488,7 +1488,15 @@ async function handleCreateMission(event) {
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
   }
 
-  try {
+    let currentUserName = 'ผู้ดูแลระบบ';
+    const sessionUser = sessionStorage.getItem('fmo_user');
+    if (sessionUser) {
+      try {
+        const u = JSON.parse(sessionUser);
+        currentUserName = u.name || u.label || u.username || 'ผู้ดูแลระบบ';
+      } catch(e){}
+    }
+
     const res = await fetch('/api/missions/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1503,7 +1511,8 @@ async function handleCreateMission(event) {
         assigned_director_ids: dirIds,
         assigned_staff_ids: staffIds,
         attachment_file: attachmentUrl,
-        attachment_name: attachmentName
+        attachment_name: attachmentName,
+        created_by: currentUserName
       })
     });
     const result = await res.json();
@@ -1861,10 +1870,19 @@ function renderMissionsTable(list) {
     const newBadge = (isScheduled && isRecent) ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
 
 
+    const creatorName = m.created_by || 'ผู้ดูแลระบบ';
+    const createdAtFormatted = formatDate24h(m.created_at || m.start_date);
+
     html += `
       <tr style="cursor: pointer;" onclick="openMissionDetailModal(${m.id})" title="คลิกเพื่อดูรายละเอียดและเปลี่ยนตัว">
         <td><code>${m.mission_code || 'ACT-' + m.id}</code></td>
-        <td><strong style="color:var(--text-heading);">${escapeHtml(m.mission_title)}</strong>${newBadge}</td>
+        <td>
+          <strong style="color:var(--text-heading); font-size: 0.95rem;">${escapeHtml(m.mission_title)}</strong>${newBadge}
+          <div style="font-size: 0.78rem; color: #64748b; margin-top: 3px; font-weight: 500;">
+            <i class="fa-solid fa-user-pen" style="color:#0284c7;"></i> ${escapeHtml(creatorName)} | 
+            <i class="fa-solid fa-clock" style="color:#0284c7;"></i> ${createdAtFormatted}
+          </div>
+        </td>
         <td>${escapeHtml(m.location || '-')}</td>
         <td>${escapeHtml(m.dress_code || 'ชุดปฏิบัติงาน อสป.')}</td>
         <td>${formatDate(m.start_date)}</td>
@@ -1935,7 +1953,17 @@ async function openMissionDetailModal(missionId) {
     const { mission, assigned = [] } = result;
     currentActiveMissionData = mission;
 
-    document.getElementById('md-title').innerText = mission.mission_title;
+    const creatorName = mission.created_by || 'ผู้ดูแลระบบ';
+    const createdAtFormatted = formatDate24h(mission.created_at || mission.start_date);
+
+    document.getElementById('md-title').innerHTML = `
+      <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-heading);">${escapeHtml(mission.mission_title)}</div>
+      <div style="font-size: 0.85rem; color: #475569; margin-top: 6px; font-weight: 500; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span><i class="fa-solid fa-user-pen" style="color: #0284c7;"></i> <strong>ผู้สร้างกิจกรรม:</strong> ${escapeHtml(creatorName)}</span>
+        <span style="color: #cbd5e1;">|</span>
+        <span><i class="fa-solid fa-clock" style="color: #0284c7;"></i> <strong>สร้างเมื่อ:</strong> ${createdAtFormatted}</span>
+      </div>
+    `;
 
     document.getElementById('md-location-time').innerText =
       `สถานที่: ${mission.location || '-'} | ` +

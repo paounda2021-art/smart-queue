@@ -2459,6 +2459,8 @@ router.post('/missions/create', async (req, res) => {
       }
     }
 
+    const creatorName = (req.body.created_by || req.body.createdBy || '').trim() || 'ผู้ดูแลระบบ';
+
     const missionResult = await dbRun(
       `
       INSERT INTO missions
@@ -2475,9 +2477,10 @@ router.post('/missions/create', async (req, res) => {
         status,
         attachment_file,
         attachment_name,
-        schedule_details
+        schedule_details,
+        created_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SCHEDULED', ?, ?, ?);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SCHEDULED', ?, ?, ?, ?);
       `,
       [
         newMissionCode,
@@ -2492,7 +2495,8 @@ router.post('/missions/create', async (req, res) => {
         Number(required_staff) || staffIds.length,
         finalAttachmentFile,
         finalAttachmentName,
-        schedule_details || description || null
+        schedule_details || description || null,
+        creatorName
       ]
     );
 
