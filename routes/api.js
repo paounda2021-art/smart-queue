@@ -6,6 +6,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { dbRun, dbGet, dbAll } = require('../db/database');
 const { sendMissionNotification, sendScheduleChangeNotification, formatDate24h } = require('../services/notification');
+const onedriveService = require('../services/onedrive');
 
 // Setup Upload Storage for Attachments
 const uploadDir = path.join(__dirname, '../public/uploads');
@@ -28,7 +29,7 @@ function extractUrl(text) {
   if (!text) return null;
   const match = text.match(/(https?:\/\/[^\s\n\r]+|(?:www\.|drive\.google\.|docs\.google\.|dropbox\.com|sharepoint\.com)[^\s\n\r]+)/i);
   if (!match) return null;
-  let url = match[0].replace(/[.,;:)]$/, '');
+  let url = match[0];
   if (!/^https?:\/\//i.test(url)) {
     url = 'https://' + url;
   }
@@ -40,8 +41,8 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB Max
 });
 
-// POST /api/upload-attachment - อัปโหลดไฟล์แนบกำหนดการกิจกรรม
-router.post('/upload-attachment', upload.single('attachment'), (req, res) => {
+// POST /api/upload-attachment - อัปโหลดไฟล์แนบกำหนดการกิจกรรม (รองรับ OneDrive อัตโนมัติ & Fallback)
+router.post('/upload-attachment', upload.single('attachment'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'ไม่พบไฟล์ที่อัปโหลด' });
@@ -51,11 +52,37 @@ router.post('/upload-attachment', upload.single('attachment'), (req, res) => {
       originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
     } catch (e) {}
 
+    // ☁️ หากมีการตั้งค่า 3 ค่าใน .env (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET) -> ส่งขึ้น OneDrive ทันที
+    if (onedriveService.isOneDriveConfigured()) {
+      try {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        const odResult = await onedriveService.uploadToOneDrive(fileBuffer, originalName);
+
+        // ลบไฟล์ชั่วคราวบน Server ออกทันที เพื่อป้องกันพื้นที่เต็ม
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+
+        if (odResult.success) {
+          return res.json({
+            success: true,
+            file_url: odResult.file_url,
+            file_name: originalName,
+            storage: 'ONEDRIVE'
+          });
+        } else {
+          console.warn('OneDrive upload failed, falling back to local file:', odResult.error);
+        }
+      } catch (odErr) {
+        console.error('OneDrive upload exception, falling back to local file:', odErr);
+      }
+    }
+
+    // 💻 กรณีที่ยังไม่ได้ตั้งค่า .env สำหรับ OneDrive -> ใช้ไฟล์ใน Local ตามปกติ (ไม่ขัดข้อง)
     const fileUrl = `/uploads/${req.file.filename}`;
     res.json({
       success: true,
       file_url: fileUrl,
-      file_name: originalName
+      file_name: originalName,
+      storage: 'LOCAL'
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
