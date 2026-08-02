@@ -227,6 +227,16 @@ async function initSchema() {
       }
     } catch (e) {}
   }
+
+  // 🧹 ล้างลิงก์ SharePoint เก่าที่ติดสิทธิ์ล็อกออกจากฐานข้อมูล เพื่อไม่ให้เกิดปัญหาสิทธิ์ล็อกเข้าไม่ได้
+  try {
+    await dbRun(`
+      UPDATE missions 
+      SET attachment_file = NULL 
+      WHERE attachment_file LIKE '%fmothai-my.sharepoint.com%' 
+         OR attachment_file LIKE '%sharepoint.com/:b:/g/%';
+    `);
+  } catch (cleanErr) {}
 }
 
 

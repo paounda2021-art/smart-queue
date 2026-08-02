@@ -918,7 +918,7 @@ router.post('/line-webhook', async (req, res) => {
 
                   const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '');
                   let fileUrl = null;
-                  if (assignment.attachment_file) {
+                  if (assignment.attachment_file && !assignment.attachment_file.includes('fmothai-my.sharepoint.com') && !assignment.attachment_file.includes('sharepoint.com/:b:/g/')) {
                     const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
                     const baseUrl = rawBaseUrl.replace(/\/app$/, '');
                     fileUrl = assignment.attachment_file.startsWith('http')
@@ -927,7 +927,9 @@ router.post('/line-webhook', async (req, res) => {
                   } else {
                     const textSearch = `${assignment.schedule_details || ''} ${assignment.description || ''}`;
                     const match = textSearch.match(/(https?:\/\/[^\s]+)/i);
-                    if (match) fileUrl = match[0];
+                    if (match && !match[0].includes('fmothai-my.sharepoint.com')) {
+                      fileUrl = match[0];
+                    }
                   }
 
                   if (fileUrl) {

@@ -380,7 +380,10 @@ function createPersonalizedFlexCard(
       }];
 
   const baseUrl = APP_BASE_URL.replace(/\/app$/, '');
-  const fileUrl = mission.attachment_file ? (mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`) : null;
+  let fileUrl = null;
+  if (mission.attachment_file && !mission.attachment_file.includes('fmothai-my.sharepoint.com') && !mission.attachment_file.includes('sharepoint.com/:b:/g/')) {
+    fileUrl = mission.attachment_file.startsWith('http') ? mission.attachment_file : `${baseUrl}${mission.attachment_file}`;
+  }
   const fileName = mission.attachment_name || 'ดาวน์โหลดเอกสารกำหนดการ';
 
   const cleanPersonName = String(person.name || '').replace(/^คุณ\s+/i, '');
