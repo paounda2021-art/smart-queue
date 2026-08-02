@@ -842,9 +842,12 @@ async function openSubstituteModal(missionId, origPersonId, origPersonName) {
       if (select) {
         if (Array.isArray(data.available_candidates) && data.available_candidates.length > 0) {
           select.innerHTML = '<option value="">-- เลือกพนักงานผู้ปฏิบัติงานแทนในกลุ่มเดียวกัน --</option>' +
-            data.available_candidates.map(c => `
-              <option value="${c.id}">${escapeHtml(c.name)} (${c.emp_code}) - ${escapeHtml(c.position || '-')} [คิวรออยู่ #${c.queue_order || '-'}]</option>
-            `).join('');
+            data.available_candidates.map(c => {
+              const statusTag = (c.queue_status === 'COMPLETED')
+                ? ' [สถานะ: COMPLETED ปฏิบัติงานแล้ว]'
+                : ` [สถานะ: WAITING คิวรออยู่ #${c.queue_order || '-'}]`;
+              return `<option value="${c.id}">${escapeHtml(c.name)} (${c.emp_code}) - ${escapeHtml(c.position || '-')}${statusTag}</option>`;
+            }).join('');
         } else {
           select.innerHTML = '<option value="">-- ไม่พบบุคลากรอื่นในกลุ่มเดียวกัน --</option>';
         }

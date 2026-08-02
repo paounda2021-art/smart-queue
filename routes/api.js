@@ -3083,13 +3083,30 @@ router.post('/missions/substitute', async (req, res) => {
       ]
     );
 
-    // 5. อัปเดตสถานะคิวของตัวแทนคนใหม่เป็น COMPLETED
-    await dbRun(
-      `UPDATE queue_members 
-       SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
-       WHERE personnel_id = ?;`,
-      [substitutePerson.id]
+    // 5. อัปเดตสถานะคิวของตัวแทนคนใหม่
+    // - ถ้าเป็น WAITING ให้ปรับเป็น COMPLETED คิวเลย (ถือว่าใช้สิทธิ์รอบนี้แล้ว)
+    // - ถ้าเป็น COMPLETED ให้คงคิวปกติไว้ จนกว่าจะถึงรอบรันใหม่
+    const subQueueMember = await dbGet(
+      `SELECT status FROM queue_members WHERE personnel_id = ? AND UPPER(role_type) = UPPER(?);`,
+      [substitutePerson.id, roleType]
     );
+
+    if (subQueueMember && subQueueMember.status !== 'COMPLETED') {
+      await dbRun(
+        `UPDATE queue_members 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         WHERE personnel_id = ? AND UPPER(role_type) = UPPER(?);`,
+        [substitutePerson.id, roleType]
+      );
+      await checkAndAdvanceRound(roleType);
+    } else {
+      await dbRun(
+        `UPDATE queue_members 
+         SET last_assigned_at = CURRENT_TIMESTAMP 
+         WHERE personnel_id = ? AND UPPER(role_type) = UPPER(?);`,
+        [substitutePerson.id, roleType]
+      );
+    }
 
     // 6. ส่ง LINE Notification การ์ดด่วน (isReallocation = true) ไปยังพนักงานคนใหม่ทันที
     try {
