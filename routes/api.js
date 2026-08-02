@@ -24,6 +24,17 @@ const storage = multer.diskStorage({
   }
 });
 
+function extractUrl(text) {
+  if (!text) return null;
+  const match = text.match(/(https?:\/\/[^\s\n\r]+|(?:www\.|drive\.google\.|docs\.google\.|dropbox\.com|sharepoint\.com)[^\s\n\r]+)/i);
+  if (!match) return null;
+  let url = match[0].replace(/[.,;:)]$/, '');
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  return url;
+}
+
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB Max
@@ -1380,9 +1391,7 @@ router.post('/line-webhook', async (req, res) => {
                 : null;
 
               if (!fileUrl) {
-                const textSearch = `${mission.schedule_details || ''} ${mission.description || ''}`;
-                const match = textSearch.match(/(https?:\/\/[^\s]+)/i);
-                if (match) fileUrl = match[0];
+                fileUrl = extractUrl(`${mission.schedule_details || ''} ${mission.description || ''}`);
               }
 
               let msgText = `📋 รายละเอียดกำหนดการกิจกรรม (อัปเดตใหม่)\n\n`;
@@ -2419,6 +2428,17 @@ router.post('/missions/create', async (req, res) => {
     //----------------------------------------------------------
     // 3. บันทึกกิจกรรม
     //----------------------------------------------------------
+    let finalAttachmentFile = attachment_file || null;
+    let finalAttachmentName = attachment_name || null;
+
+    if (!finalAttachmentFile) {
+      const extractedUrl = extractUrl(`${schedule_details || ''} ${description || ''}`);
+      if (extractedUrl) {
+        finalAttachmentFile = extractedUrl;
+        finalAttachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+      }
+    }
+
     const missionResult = await dbRun(
       `
       INSERT INTO missions
@@ -2450,8 +2470,8 @@ router.post('/missions/create', async (req, res) => {
         end_date,
         Number(required_directors) || directorIds.length,
         Number(required_staff) || staffIds.length,
-        attachment_file || null,
-        attachment_name || null,
+        finalAttachmentFile,
+        finalAttachmentName,
         schedule_details || description || null
       ]
     );
@@ -2796,6 +2816,17 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
       return res.status(404).json({ success: false, error: 'ไม่พบกิจกรรมที่ระบุ' });
     }
 
+    let finalAttachmentFile = attachment_file || null;
+    let finalAttachmentName = attachment_name || null;
+
+    if (!finalAttachmentFile) {
+      const extractedUrl = extractUrl(`${schedule_details || ''} ${description || ''}`);
+      if (extractedUrl) {
+        finalAttachmentFile = extractedUrl;
+        finalAttachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
+      }
+    }
+
     await dbRun(
       `UPDATE missions
        SET mission_title = COALESCE(?, mission_title),
@@ -2816,8 +2847,8 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
         start_date || null,
         end_date || null,
         schedule_details || null,
-        attachment_file || null,
-        attachment_name || null,
+        finalAttachmentFile,
+        finalAttachmentName,
         missionId
       ]
     );
