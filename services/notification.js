@@ -238,12 +238,21 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
             ]
           },
           {
+            type: 'text',
+            text: 'หมายเหตุ : หากรับทราบกิจกรรมแล้ว ให้ท่านเข้าร่วมงานตามวัน เวลา และสถานที่ดังกล่าว ตามที่แจ้ง ไม่สามารถส่งผู้แทนได้',
+            size: 'xs',
+            color: '#dc2626',
+            weight: 'bold',
+            wrap: true,
+            margin: 'md'
+          },
+          {
             type: 'box',
             layout: 'vertical',
             backgroundColor: '#fef3c7',
             paddingAll: '10px',
             cornerRadius: '8px',
-            margin: 'md',
+            margin: 'sm',
             contents: [
               { type: 'text', text: '⏱️ ข้อปฏิบัติตน:', size: 'xxs', color: '#d97706', weight: 'bold' },
               { type: 'text', text: 'กรุณาเดินทางมาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที', size: 'xxs', color: '#b45309', wrap: true, margin: 'xs' }
@@ -569,12 +578,21 @@ function createPersonalizedFlexCard(
 
 
           {
+            type: 'text',
+            text: 'หมายเหตุ : หากรับทราบกิจกรรมแล้ว ให้ท่านเข้าร่วมงานตามวัน เวลา และสถานที่ดังกล่าว ตามที่แจ้ง ไม่สามารถส่งผู้แทนได้',
+            size: 'xs',
+            color: '#dc2626',
+            weight: 'bold',
+            wrap: true,
+            margin: 'md'
+          },
+          {
             type: 'box',
             layout: 'vertical',
             backgroundColor: '#fef3c7',
             paddingAll: '10px',
             cornerRadius: '8px',
-            margin: 'md',
+            margin: 'sm',
             contents: [
               {
                 type: 'text',
