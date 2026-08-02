@@ -2940,12 +2940,17 @@ router.get('/missions/substitute-candidates', async (req, res) => {
       excludeIds.push(Number(original_personnel_id));
     }
 
+    const dirExcludeCondition = roleType === 'DIRECTOR' 
+      ? " AND qm.personnel_id NOT IN (SELECT id FROM personnel WHERE UPPER(emp_code) IN ('DIR-09', 'DIR-10'))" 
+      : "";
+
     // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto) แบ่งตาม 2 คนรอบน (ASC) และ Staff ท้ายคิว (DESC)
+    // สำหรับ DIRECTOR จะวนเฉพาะ DIR-01 ถึง DIR-08 เท่านั้น (ยกเว้น DIR-09 และ DIR-10)
     const autoCandidate = await dbGet(
       `SELECT qm.*, p.name, p.emp_code, p.department, p.position 
        FROM queue_members qm
        JOIN personnel p ON qm.personnel_id = p.id
-       WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
+       WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})${dirExcludeCondition}
        ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ${posGroup.sortOrder}
        LIMIT 1;`,
       [roleType]
@@ -3006,10 +3011,15 @@ router.post('/missions/substitute', async (req, res) => {
         excludeIds.push(Number(original_personnel_id));
       }
 
+      const dirExcludeCondition = roleType === 'DIRECTOR' 
+        ? " AND qm.personnel_id NOT IN (SELECT id FROM personnel WHERE UPPER(emp_code) IN ('DIR-09', 'DIR-10'))" 
+        : "";
+
       const autoCandidate = await dbGet(
         `SELECT qm.personnel_id 
          FROM queue_members qm
-         WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
+         JOIN personnel p ON qm.personnel_id = p.id
+         WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})${dirExcludeCondition}
          ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ${posGroup.sortOrder}
          LIMIT 1;`,
         [roleType]
