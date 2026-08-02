@@ -6,9 +6,9 @@
 const axios = require('axios');
 
 function isOneDriveConfigured() {
-  const tenantId = (process.env.MS_TENANT_ID || '').trim();
-  const clientId = (process.env.MS_CLIENT_ID || '').trim();
-  const clientSecret = (process.env.MS_CLIENT_SECRET || '').trim();
+  const tenantId = (process.env.MS_TENANT_ID || process.env.tenant_id || '').trim();
+  const clientId = (process.env.MS_CLIENT_ID || process.env.client_id || '').trim();
+  const clientSecret = (process.env.MS_CLIENT_SECRET || process.env.client_secret || '').trim();
 
   return Boolean(
     tenantId && 
@@ -24,9 +24,9 @@ function isOneDriveConfigured() {
  * Obtain Microsoft OAuth 2.0 Access Token using Client Credentials Flow
  */
 async function getAccessToken() {
-  const tenantId = process.env.MS_TENANT_ID.trim();
-  const clientId = process.env.MS_CLIENT_ID.trim();
-  const clientSecret = process.env.MS_CLIENT_SECRET.trim();
+  const tenantId = (process.env.MS_TENANT_ID || process.env.tenant_id || '').trim();
+  const clientId = (process.env.MS_CLIENT_ID || process.env.client_id || '').trim();
+  const clientSecret = (process.env.MS_CLIENT_SECRET || process.env.client_secret || '').trim();
 
   const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
 
@@ -56,8 +56,15 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
     const baseFolder = (process.env.ONEDRIVE_BASE_FOLDER || 'FMO_SmartQueue_Docs').trim();
     const folderPath = customSubfolder ? `${baseFolder}/${customSubfolder}` : baseFolder;
     
-    // Support either MS_USER_ACCOUNT or MS_USER_EMAIL
-    const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+    // Support all variations: MS_USER_ACCOUNT, MS_USER_EMAIL, USER_EMAIL, user_email
+    const targetUser = (
+      process.env.MS_USER_ACCOUNT || 
+      process.env.MS_USER_EMAIL || 
+      process.env.USER_EMAIL || 
+      process.env.user_email || 
+      process.env.ms_user_email || 
+      ''
+    ).trim();
     
     // Sanitize file name for OneDrive
     const sanitizedFileName = originalFileName.replace(/[\/\\?%*:|"<>]/g, '_');
@@ -109,7 +116,14 @@ async function getOneDriveDownloadUrl(itemId) {
   }
 
   const accessToken = await getAccessToken();
-  const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+  const targetUser = (
+    process.env.MS_USER_ACCOUNT || 
+    process.env.MS_USER_EMAIL || 
+    process.env.USER_EMAIL || 
+    process.env.user_email || 
+    process.env.ms_user_email || 
+    ''
+  ).trim();
 
   const itemEndpoint = targetUser
     ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}`
@@ -132,7 +146,14 @@ async function getOneDriveFileStream(itemId) {
   }
 
   const accessToken = await getAccessToken();
-  const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+  const targetUser = (
+    process.env.MS_USER_ACCOUNT || 
+    process.env.MS_USER_EMAIL || 
+    process.env.USER_EMAIL || 
+    process.env.user_email || 
+    process.env.ms_user_email || 
+    ''
+  ).trim();
 
   const contentEndpoint = targetUser
     ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}/content`
