@@ -51,6 +51,9 @@ app.get('/app', (req, res) => {
 
 // Fallback for SPA routes
 app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ success: false, error: 'API route not found' });
+  }
   if (req.path.includes('.')) {
     res.status(404).send('Not found');
   } else {

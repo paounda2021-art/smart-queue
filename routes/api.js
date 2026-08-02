@@ -99,17 +99,26 @@ router.get('/download-onedrive-file/:itemId', async (req, res) => {
       return res.status(400).send('Invalid file item id');
     }
 
-    const streamRes = await onedriveService.getOneDriveFileStream(itemId);
+    // 1. ดึงลิงก์ดาวน์โหลดตรงชั่วคราว (@microsoft.graph.downloadUrl) จาก Graph API
+    try {
+      const directDownloadUrl = await onedriveService.getOneDriveDownloadUrl(itemId);
+      if (directDownloadUrl && directDownloadUrl.startsWith('http')) {
+        return res.redirect(302, directDownloadUrl);
+      }
+    } catch (urlErr) {
+      console.warn('Could not fetch direct downloadUrl, falling back to stream:', urlErr.message);
+    }
 
-    // Set proper Content-Type & disposition
-    const contentType = streamRes.headers['content-type'] || 'application/octet-stream';
+    // 2. หากไม่ได้ลิงก์ตรง ให้ใช้การสตรีมไฟล์ผ่านเซิร์ฟเวอร์
+    const streamRes = await onedriveService.getOneDriveFileStream(itemId);
+    const contentType = streamRes.headers['content-type'] || 'application/pdf';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
 
     streamRes.data.pipe(res);
   } catch (err) {
     console.error('Error proxying OneDrive download:', err.message);
-    res.status(500).send('ไม่สามารถดึงไฟล์จาก OneDrive ได้ (หรือสิทธิ์การเข้าถึงหมดอายุ)');
+    res.status(500).send('ไม่สามารถดึงไฟล์จาก OneDrive ได้: ' + (err.message || 'เกิดข้อผิดพลาด'));
   }
 });
 

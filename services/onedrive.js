@@ -1,6 +1,6 @@
 /**
  * Services: Microsoft OneDrive / SharePoint Integration via Microsoft Graph API
- * Handles automatic file uploads to OneDrive and generates accessible download proxy links.
+ * Handles automatic file uploads to OneDrive and generates accessible pre-signed download links.
  */
 
 const axios = require('axios');
@@ -101,6 +101,29 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
 }
 
 /**
+ * Get direct pre-signed download URL (@microsoft.graph.downloadUrl) for an item
+ */
+async function getOneDriveDownloadUrl(itemId) {
+  if (!isOneDriveConfigured()) {
+    throw new Error('OneDrive configuration is missing.');
+  }
+
+  const accessToken = await getAccessToken();
+  const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+
+  const itemEndpoint = targetUser
+    ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}`
+    : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}`;
+
+  const itemRes = await axios.get(itemEndpoint, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  const downloadUrl = itemRes.data['@microsoft.graph.downloadUrl'] || itemRes.data.webUrl;
+  return downloadUrl;
+}
+
+/**
  * Download file stream directly from OneDrive using App Credentials Token
  */
 async function getOneDriveFileStream(itemId) {
@@ -126,5 +149,6 @@ async function getOneDriveFileStream(itemId) {
 module.exports = {
   isOneDriveConfigured,
   uploadToOneDrive,
+  getOneDriveDownloadUrl,
   getOneDriveFileStream
 };
