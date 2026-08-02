@@ -89,6 +89,30 @@ router.post('/upload-attachment', upload.single('attachment'), async (req, res) 
   }
 });
 
+// GET /api/download-onedrive-file/:itemId - Proxy ดาวน์โหลด/เปิดไฟล์จาก OneDrive โดยตรง ไม่ต้องล็อกอิน Microsoft 365
+router.get('/download-onedrive-file/:itemId', async (req, res) => {
+  try {
+    const itemId = req.params.itemId;
+    const fileName = req.query.name || 'document.pdf';
+
+    if (!itemId) {
+      return res.status(400).send('Invalid file item id');
+    }
+
+    const streamRes = await onedriveService.getOneDriveFileStream(itemId);
+
+    // Set proper Content-Type & disposition
+    const contentType = streamRes.headers['content-type'] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+
+    streamRes.data.pipe(res);
+  } catch (err) {
+    console.error('Error proxying OneDrive download:', err.message);
+    res.status(500).send('ไม่สามารถดึงไฟล์จาก OneDrive ได้ (หรือสิทธิ์การเข้าถึงหมดอายุ)');
+  }
+});
+
 // POST /api/login - ตรวจสอบการเข้าสู่ระบบจากตาราง personnel ใน SQLite
 router.post('/login', async (req, res) => {
   try {

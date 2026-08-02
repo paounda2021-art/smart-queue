@@ -1,6 +1,6 @@
 /**
  * Services: Microsoft OneDrive / SharePoint Integration via Microsoft Graph API
- * Handles automatic file uploads to OneDrive and generates accessible sharing links.
+ * Handles automatic file uploads to OneDrive and generates accessible download proxy links.
  */
 
 const axios = require('axios');
@@ -44,7 +44,7 @@ async function getAccessToken() {
 }
 
 /**
- * Upload file buffer directly to target User Account OneDrive and return accessible sharing link
+ * Upload file buffer directly to target User Account OneDrive
  */
 async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = '') {
   if (!isOneDriveConfigured()) {
@@ -78,44 +78,15 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
     const itemId = uploadRes.data.id;
     const itemWebUrl = uploadRes.data.webUrl;
 
-    // 2. Create sharing link (try 'organization' scope first or 'anonymous')
-    let shareUrl = itemWebUrl;
-    const itemLinkEndpoint = targetUser
-      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}/createLink`
-      : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/createLink`;
-
-    const preferredScope = (process.env.MS_LINK_SCOPE || 'organization').trim();
-    const scopesToTry = [preferredScope, 'organization', 'anonymous'];
-    const tried = new Set();
-
-    for (const scope of scopesToTry) {
-      if (tried.has(scope)) continue;
-      tried.add(scope);
-
-      try {
-        const linkRes = await axios.post(itemLinkEndpoint, {
-          type: 'view',
-          scope: scope
-        }, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (linkRes.data && linkRes.data.link && linkRes.data.link.webUrl) {
-          shareUrl = linkRes.data.link.webUrl;
-          break;
-        }
-      } catch (linkErr) {
-        console.warn(`OneDrive createLink with scope '${scope}' failed:`, linkErr.response?.data?.error?.message || linkErr.message);
-      }
-    }
+    // 2. Build Smart Queue Proxy Download URL so LINE users can open files seamlessly without Microsoft login prompt
+    const proxyDownloadUrl = `/api/download-onedrive-file/${itemId}?name=${encodeURIComponent(originalFileName)}`;
 
     return {
       isConfigured: true,
       success: true,
-      file_url: shareUrl,
+      file_url: proxyDownloadUrl,
+      item_id: itemId,
+      web_url: itemWebUrl,
       file_name: originalFileName,
       storage: 'ONEDRIVE'
     };
@@ -129,7 +100,31 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
   }
 }
 
+/**
+ * Download file stream directly from OneDrive using App Credentials Token
+ */
+async function getOneDriveFileStream(itemId) {
+  if (!isOneDriveConfigured()) {
+    throw new Error('OneDrive configuration is missing.');
+  }
+
+  const accessToken = await getAccessToken();
+  const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+
+  const contentEndpoint = targetUser
+    ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}/content`
+    : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content`;
+
+  const streamRes = await axios.get(contentEndpoint, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+    responseType: 'stream'
+  });
+
+  return streamRes;
+}
+
 module.exports = {
   isOneDriveConfigured,
-  uploadToOneDrive
+  uploadToOneDrive,
+  getOneDriveFileStream
 };
