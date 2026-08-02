@@ -2886,6 +2886,36 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
 // 5. EMERGENCY SUBSTITUTION (การเปลี่ยนตัวกะทันหัน)
 // -------------------------------------------------------------
 
+async function getStaffPositionGroup(missionId, personnelId, roleType) {
+  if (roleType === 'DIRECTOR') {
+    return {
+      label: 'กลุ่มฟิก 2 คนบน (ผู้บริหาร/ผอ.ฝ่าย)',
+      sortOrder: 'ASC'
+    };
+  }
+
+  const staffAssignments = await dbAll(
+    `SELECT personnel_id FROM mission_assignments 
+     WHERE mission_id = ? AND role_type = 'STAFF' AND assignment_status != 'CANCELLED'
+     ORDER BY id ASC;`,
+    [missionId]
+  );
+
+  const idx = staffAssignments.findIndex(a => Number(a.personnel_id) === Number(personnelId));
+
+  if (idx !== -1 && idx < 2) {
+    return {
+      label: 'กลุ่ม Staff 2 คนรอบน (ดึงคิวว่างหัวคิว)',
+      sortOrder: 'ASC'
+    };
+  } else {
+    return {
+      label: 'กลุ่ม Staff ท้ายคิว (ดึงคิวว่างท้ายคิว)',
+      sortOrder: 'DESC'
+    };
+  }
+}
+
 // GET /api/missions/substitute-candidates - ดึงข้อมูลพนักงานถัดไปและรายชื่อพนักงานทั้งหมดในกลุ่มเพื่อใช้ใน Modal เปลี่ยนตัว
 router.get('/missions/substitute-candidates', async (req, res) => {
   try {
@@ -2898,6 +2928,7 @@ router.get('/missions/substitute-candidates', async (req, res) => {
     if (!origPerson) return res.status(404).json({ success: false, error: 'ไม่พบบุคลากรเดิม' });
 
     const roleType = origPerson.role_type;
+    const posGroup = await getStaffPositionGroup(mission_id, original_personnel_id, roleType);
 
     // ดึงรายชื่อ ID ที่ถูกจัดสรรในกิจกรรมนี้อยู่แล้ว (เพื่อไม่ให้เลือกซ้ำ)
     const existingAssigned = await dbAll(
@@ -2909,13 +2940,13 @@ router.get('/missions/substitute-candidates', async (req, res) => {
       excludeIds.push(Number(original_personnel_id));
     }
 
-    // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto) จากกลุ่มเดียวกันที่กำลังรออยู่ (WAITING ก่อน HOLD)
+    // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto) แบ่งตาม 2 คนรอบน (ASC) และ Staff ท้ายคิว (DESC)
     const autoCandidate = await dbGet(
       `SELECT qm.*, p.name, p.emp_code, p.department, p.position 
        FROM queue_members qm
        JOIN personnel p ON qm.personnel_id = p.id
        WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
-       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC
+       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ${posGroup.sortOrder}
        LIMIT 1;`,
       [roleType]
     );
@@ -2926,18 +2957,15 @@ router.get('/missions/substitute-candidates', async (req, res) => {
        FROM personnel p
        LEFT JOIN queue_members qm ON p.id = qm.personnel_id
        WHERE p.role_type = ? AND p.id NOT IN (${excludeIds.join(',')})
-       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC, p.name ASC;`,
+       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ${posGroup.sortOrder}, p.name ASC;`,
       [roleType]
     );
-
-    const roleGroupLabel = roleType === 'DIRECTOR'
-      ? 'กลุ่มฟิก 2 คนบน (ผู้บริหาร/ผอ.ฝ่าย)'
-      : 'กลุ่มพนักงานทั่วไป (Staff)';
 
     res.json({
       success: true,
       role_type: roleType,
-      role_group_label: roleGroupLabel,
+      role_group_label: posGroup.label,
+      sort_order: posGroup.sortOrder,
       auto_candidate: autoCandidate ? {
         id: autoCandidate.personnel_id,
         name: autoCandidate.name,
@@ -2965,6 +2993,7 @@ router.post('/missions/substitute', async (req, res) => {
     if (!origPerson) return res.status(404).json({ success: false, error: 'ไม่พบบุคลากรเดิม' });
 
     const roleType = origPerson.role_type;
+    const posGroup = await getStaffPositionGroup(mission_id, original_personnel_id, roleType);
     let targetSubstituteId = substitute_personnel_id;
 
     if (mode === 'AUTO' || !targetSubstituteId) {
@@ -2981,7 +3010,7 @@ router.post('/missions/substitute', async (req, res) => {
         `SELECT qm.personnel_id 
          FROM queue_members qm
          WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
-         ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC
+         ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ${posGroup.sortOrder}
          LIMIT 1;`,
         [roleType]
       );
