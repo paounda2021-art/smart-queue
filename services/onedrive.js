@@ -66,13 +66,15 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
       ''
     ).trim();
     
-    // Sanitize file name for OneDrive
+    // Sanitize file name and encode path segments individually (preserve slashes for Graph API)
     const sanitizedFileName = originalFileName.replace(/[\/\\?%*:|"<>]/g, '_');
-    const encodedPath = encodeURIComponent(`${folderPath}/${sanitizedFileName}`);
+    const cleanFolder = folderPath.split('/').map(s => encodeURIComponent(s)).join('/');
+    const cleanFileName = encodeURIComponent(sanitizedFileName);
+    const itemPath = `${cleanFolder}/${cleanFileName}`;
     
     const driveEndpoint = targetUser
-      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/root:/${encodedPath}:/content`
-      : `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}:/content`;
+      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/root:/${itemPath}:/content`
+      : `https://graph.microsoft.com/v1.0/me/drive/root:/${itemPath}:/content`;
 
     // 1. Upload file content to target User Account OneDrive
     const uploadRes = await axios.put(driveEndpoint, fileBuffer, {
