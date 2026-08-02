@@ -2955,6 +2955,15 @@ router.post('/missions/substitute', async (req, res) => {
     const origPerson = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [original_personnel_id]);
     if (!origPerson) return res.status(404).json({ success: false, error: 'ไม่พบบุคลากรเดิม' });
 
+    // ตรวจสอบว่ากิจกรรมสิ้นสุดแล้วหรือยัง
+    const missionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [mission_id]);
+    if (missionData && missionData.end_date) {
+      const endDate = new Date(String(missionData.end_date).replace(' ', 'T'));
+      if (!isNaN(endDate.getTime()) && new Date() > endDate) {
+        return res.status(400).json({ success: false, error: 'กิจกรรมนี้สิ้นสุดวันเวลาที่กำหนดแล้ว ไม่สามารถดำเนินการเปลี่ยนตัวได้' });
+      }
+    }
+
     const roleType = origPerson.role_type;
     const posGroup = await getStaffPositionGroup(mission_id, original_personnel_id, roleType);
     let targetSubstituteId = substitute_personnel_id;

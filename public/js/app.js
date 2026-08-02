@@ -2035,8 +2035,11 @@ else if (a.notes) {
 
         // ---------------------------------------------------
         // ปุ่มดำเนินการ (เปลี่ยนตัวฉุกเฉิน / ตอบรับ)
+        // แสดงปุ่มเปลี่ยนตัวจนกว่าจะเลยวันเวลาสิ้นสุดกิจกรรม (end_date)
         // ---------------------------------------------------
         let actionBtn = '-';
+        const missionEndDate = mission.end_date ? new Date(String(mission.end_date).replace(' ', 'T')) : null;
+        const isMissionEnded = missionEndDate && !isNaN(missionEndDate.getTime()) ? (new Date() > missionEndDate) : false;
 
         if (assignmentStatus === 'JOINED') {
           const safeName = String(a.name || '').replace(/'/g, "\\'");
@@ -2047,9 +2050,11 @@ else if (a.notes) {
                   <i class="fa-solid fa-check"></i> รับทราบ
                 </button>
               ` : ''}
-              <button class="btn btn-warning btn-sm" onclick="openSubstituteModal(${mission.id}, ${a.personnel_id}, '${safeName}')">
-                <i class="fa-solid fa-rotate"></i> เปลี่ยนตัว
-              </button>
+              ${!isMissionEnded ? `
+                <button class="btn btn-warning btn-sm" onclick="openSubstituteModal(${mission.id}, ${a.personnel_id}, '${safeName}')">
+                  <i class="fa-solid fa-rotate"></i> เปลี่ยนตัว
+                </button>
+              ` : ''}
             </div>
           `;
         }
