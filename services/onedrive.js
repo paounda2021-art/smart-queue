@@ -78,8 +78,8 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
     const itemId = uploadRes.data.id;
     const itemWebUrl = uploadRes.data.webUrl;
 
-    // 2. Build Smart Queue Proxy Download URL so LINE users can open files seamlessly without Microsoft login prompt
-    const proxyDownloadUrl = `/api/download-onedrive-file/${itemId}?name=${encodeURIComponent(originalFileName)}`;
+    // 2. Build Smart Queue Proxy Download URL (/download-file/:itemId) so LINE users can open files seamlessly without login prompt
+    const proxyDownloadUrl = `/download-file/${itemId}?name=${encodeURIComponent(originalFileName)}`;
 
     return {
       isConfigured: true,

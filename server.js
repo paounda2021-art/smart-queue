@@ -17,6 +17,8 @@ app.use((req, res, next) => {
   next();
 });
 
+const onedriveService = require('./services/onedrive');
+
 // Route พิเศษส่งไฟล์อัปโหลดตรงข้ามหน้าเตือน ngrok
 app.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(__dirname, 'public', 'uploads', req.params.filename);
@@ -26,6 +28,46 @@ app.get('/uploads/:filename', (req, res) => {
       res.status(404).send('ไม่พบไฟล์เอกสารที่ระบุ');
     }
   });
+});
+
+// ☁️ Route เปิด/ดาวน์โหลดไฟล์จาก OneDrive โดยตรง ไม่ต้องผ่าน Login และไม่ติดหน้าจอ Login
+app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async (req, res) => {
+  try {
+    const itemId = req.params.itemId;
+    const fileName = req.query.name || 'document.pdf';
+
+    if (!itemId) {
+      return res.status(400).send('Invalid file item id');
+    }
+
+    // 1. ดึงลิงก์ดาวน์โหลดตรงชั่วคราว (@microsoft.graph.downloadUrl) จาก Graph API
+    try {
+      const directDownloadUrl = await onedriveService.getOneDriveDownloadUrl(itemId);
+      if (directDownloadUrl && directDownloadUrl.startsWith('http')) {
+        return res.redirect(302, directDownloadUrl);
+      }
+    } catch (urlErr) {
+      console.warn('Could not fetch direct downloadUrl, trying stream:', urlErr.message);
+    }
+
+    // 2. สตรีมไฟล์ตรงจาก OneDrive หากไม่ได้ลิงก์ตรง
+    const streamRes = await onedriveService.getOneDriveFileStream(itemId);
+    const contentType = streamRes.headers['content-type'] || 'application/pdf';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+
+    streamRes.data.pipe(res);
+  } catch (err) {
+    console.error('Error proxying OneDrive download:', err.message);
+    res.status(500).send(`
+      <div style="font-family: sans-serif; padding: 30px; text-align: center; background: #f8fafc; border-radius: 12px; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0;">
+        <h3 style="color: #dc2626; margin-bottom: 10px;">❌ ไม่สามารถเปิดไฟล์จาก OneDrive ได้</h3>
+        <p style="color: #475569; font-size: 0.9rem;">สาเหตุ: ${err.message || 'สิทธิ์การเข้าถึงหมดอายุ หรือรหัสตั้งค่าใน .env ไม่ถูกต้อง'}</p>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #cbd5e1;">
+        <small style="color: #94a3b8;">FMO Smart Queue System</small>
+      </div>
+    `);
+  }
 });
 
 // Serve static frontend files (Disable default index.html serving)
