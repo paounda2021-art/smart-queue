@@ -829,17 +829,21 @@ async function openSubstituteModal(missionId, origPersonId, origPersonName) {
     const data = await res.json();
 
     if (data.success) {
+      const roleLabel = data.role_group_label ? ` [${data.role_group_label}]` : '';
+      document.getElementById('sub-orig-person-name').innerText = `${origPersonName}${roleLabel}`;
+
       if (data.auto_candidate) {
-        document.getElementById('sub-auto-preview').innerText = `${data.auto_candidate.name} (${data.auto_candidate.emp_code})`;
+        const qOrderStr = data.auto_candidate.queue_order ? ` (คิวรออยู่ #${data.auto_candidate.queue_order})` : '';
+        document.getElementById('sub-auto-preview').innerText = `${data.auto_candidate.name} (${data.auto_candidate.emp_code})${qOrderStr}`;
       } else {
-        document.getElementById('sub-auto-preview').innerText = 'ไม่พบบุคลากรสำรองในคิว';
+        document.getElementById('sub-auto-preview').innerText = 'ไม่พบบุคลากรสำรองที่รออยู่ในกลุ่มนี้';
       }
 
       if (select) {
         if (Array.isArray(data.available_candidates) && data.available_candidates.length > 0) {
-          select.innerHTML = '<option value="">-- เลือกพนักงานผู้ปฏิบัติงานแทน --</option>' +
+          select.innerHTML = '<option value="">-- เลือกพนักงานผู้ปฏิบัติงานแทนในกลุ่มเดียวกัน --</option>' +
             data.available_candidates.map(c => `
-              <option value="${c.id}">${escapeHtml(c.name)} (${c.emp_code}) - ${escapeHtml(c.position || '-')} [คิวที่ #${c.queue_order || '-'}]</option>
+              <option value="${c.id}">${escapeHtml(c.name)} (${c.emp_code}) - ${escapeHtml(c.position || '-')} [คิวรออยู่ #${c.queue_order || '-'}]</option>
             `).join('');
         } else {
           select.innerHTML = '<option value="">-- ไม่พบบุคลากรอื่นในกลุ่มเดียวกัน --</option>';
@@ -1457,7 +1461,6 @@ async function handleCreateMission(event) {
   let attachmentName = '';
   const fileInput = document.getElementById('alloc-attachment-file');
   const urlInput = document.getElementById('alloc-attachment-url')?.value.trim();
-  const descInput = document.getElementById('alloc-desc')?.value.trim();
 
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const formData = new FormData();
@@ -1479,12 +1482,6 @@ async function handleCreateMission(event) {
   } else if (urlInput) {
     attachmentUrl = urlInput;
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
-  } else if (descInput) {
-    const match = descInput.match(/(https?:\/\/[^\s]+)/i);
-    if (match) {
-      attachmentUrl = match[0];
-      attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
-    }
   }
 
   try {
@@ -3260,12 +3257,6 @@ async function saveScheduleChanges(e) {
   } else if (urlInput) {
     attachmentUrl = urlInput;
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
-  } else if (scheduleDetails) {
-    const match = scheduleDetails.match(/(https?:\/\/[^\s]+)/i);
-    if (match) {
-      attachmentUrl = match[0];
-      attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
-    }
   }
 
   showToast('กำลังบันทึกและส่งแจ้งเตือนเปลี่ยนแปลงกำหนดการทาง LINE...', 'info');

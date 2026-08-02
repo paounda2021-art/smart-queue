@@ -2909,13 +2909,13 @@ router.get('/missions/substitute-candidates', async (req, res) => {
       excludeIds.push(Number(original_personnel_id));
     }
 
-    // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto)
+    // 1. ดึงพนักงานคิวถัดไปอัตโนมัติ (Auto) จากกลุ่มเดียวกันที่กำลังรออยู่ (WAITING ก่อน HOLD)
     const autoCandidate = await dbGet(
       `SELECT qm.*, p.name, p.emp_code, p.department, p.position 
        FROM queue_members qm
        JOIN personnel p ON qm.personnel_id = p.id
        WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
-       ORDER BY CASE qm.status WHEN 'HOLD' THEN 1 WHEN 'WAITING' THEN 2 END, qm.queue_order ASC
+       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC
        LIMIT 1;`,
       [roleType]
     );
@@ -2926,17 +2926,24 @@ router.get('/missions/substitute-candidates', async (req, res) => {
        FROM personnel p
        LEFT JOIN queue_members qm ON p.id = qm.personnel_id
        WHERE p.role_type = ? AND p.id NOT IN (${excludeIds.join(',')})
-       ORDER BY p.name ASC;`,
+       ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC, p.name ASC;`,
       [roleType]
     );
+
+    const roleGroupLabel = roleType === 'DIRECTOR'
+      ? 'กลุ่มฟิก 2 คนบน (ผู้บริหาร/ผอ.ฝ่าย)'
+      : 'กลุ่มพนักงานทั่วไป (Staff)';
 
     res.json({
       success: true,
       role_type: roleType,
+      role_group_label: roleGroupLabel,
       auto_candidate: autoCandidate ? {
         id: autoCandidate.personnel_id,
         name: autoCandidate.name,
-        emp_code: autoCandidate.emp_code
+        emp_code: autoCandidate.emp_code,
+        queue_order: autoCandidate.queue_order,
+        queue_status: autoCandidate.status
       } : null,
       available_candidates: availablePersonnel
     });
@@ -2974,7 +2981,7 @@ router.post('/missions/substitute', async (req, res) => {
         `SELECT qm.personnel_id 
          FROM queue_members qm
          WHERE qm.role_type = ? AND qm.personnel_id NOT IN (${excludeIds.join(',')})
-         ORDER BY CASE qm.status WHEN 'HOLD' THEN 1 WHEN 'WAITING' THEN 2 END, qm.queue_order ASC
+         ORDER BY CASE qm.status WHEN 'WAITING' THEN 1 WHEN 'HOLD' THEN 2 ELSE 3 END, qm.queue_order ASC
          LIMIT 1;`,
         [roleType]
       );
