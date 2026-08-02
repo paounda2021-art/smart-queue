@@ -2837,9 +2837,16 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
     let finalAttachmentFile = attachment_file || null;
     let finalAttachmentName = attachment_name || null;
 
-    if (!finalAttachmentFile) {
+    if (attachment_file) {
+      // หากมีการอัปโหลดไฟล์ใหม่ ให้เขียนทับไฟล์เดิมใน DB ทันที
+      await dbRun(
+        `UPDATE missions SET attachment_file = ?, attachment_name = ? WHERE id = ?;`,
+        [attachment_file, attachment_name || 'เอกสารแนบกำหนดการใหม่', missionId]
+      );
+    } else {
       const extractedUrl = extractUrl(`${schedule_details || ''} ${description || ''}`);
-      if (extractedUrl) {
+      // ข้ามการดึงลิงก์ SharePoint เก่าที่ติดสิทธิ์ล็อก
+      if (extractedUrl && !extractedUrl.includes('fmothai-my.sharepoint.com')) {
         finalAttachmentFile = extractedUrl;
         finalAttachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
       }
@@ -2854,8 +2861,8 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
            start_date = COALESCE(?, start_date),
            end_date = COALESCE(?, end_date),
            schedule_details = COALESCE(?, schedule_details),
-           attachment_file = COALESCE(?, attachment_file),
-           attachment_name = COALESCE(?, attachment_name)
+           attachment_file = CASE WHEN ? IS NOT NULL THEN ? ELSE attachment_file END,
+           attachment_name = CASE WHEN ? IS NOT NULL THEN ? ELSE attachment_name END
        WHERE id = ?;`,
       [
         mission_title || null,
@@ -2866,6 +2873,8 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
         end_date || null,
         schedule_details || null,
         finalAttachmentFile,
+        finalAttachmentFile,
+        finalAttachmentName,
         finalAttachmentName,
         missionId
       ]
