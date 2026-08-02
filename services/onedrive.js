@@ -1,14 +1,9 @@
 /**
  * Services: Microsoft OneDrive / SharePoint Integration via Microsoft Graph API
- * Handles automatic file uploads to OneDrive and generates protected sharing links.
- * 
- * Graceful Fallback:
- * If MS_TENANT_ID, MS_CLIENT_ID, or MS_CLIENT_SECRET are not set in .env,
- * the system will safely skip OneDrive and use local/external URL storage without errors.
+ * Handles automatic file uploads to OneDrive and generates accessible sharing links.
  */
 
 const axios = require('axios');
-const path = require('path');
 
 function isOneDriveConfigured() {
   const tenantId = (process.env.MS_TENANT_ID || '').trim();
@@ -49,7 +44,7 @@ async function getAccessToken() {
 }
 
 /**
- * Upload file buffer directly to OneDrive and return sharing link
+ * Upload file buffer directly to target User Account OneDrive and return accessible sharing link
  */
 async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = '') {
   if (!isOneDriveConfigured()) {
@@ -61,15 +56,18 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
     const baseFolder = (process.env.ONEDRIVE_BASE_FOLDER || 'FMO_SmartQueue_Docs').trim();
     const folderPath = customSubfolder ? `${baseFolder}/${customSubfolder}` : baseFolder;
     
+    // Support either MS_USER_ACCOUNT or MS_USER_EMAIL
+    const targetUser = (process.env.MS_USER_ACCOUNT || process.env.MS_USER_EMAIL || '').trim();
+    
     // Sanitize file name for OneDrive
     const sanitizedFileName = originalFileName.replace(/[\/\\?%*:|"<>]/g, '_');
     const encodedPath = encodeURIComponent(`${folderPath}/${sanitizedFileName}`);
     
-    const driveEndpoint = (process.env.MS_USER_EMAIL || '').trim()
-      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MS_USER_EMAIL.trim())}/drive/root:/${encodedPath}:/content`
+    const driveEndpoint = targetUser
+      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/root:/${encodedPath}:/content`
       : `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}:/content`;
 
-    // 1. Upload file content to OneDrive
+    // 1. Upload file content to target User Account OneDrive
     const uploadRes = await axios.put(driveEndpoint, fileBuffer, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -80,25 +78,38 @@ async function uploadToOneDrive(fileBuffer, originalFileName, customSubfolder = 
     const itemId = uploadRes.data.id;
     const itemWebUrl = uploadRes.data.webUrl;
 
-    // 2. Create sharing link (isolated/view permission)
+    // 2. Create sharing link (try 'organization' scope first or 'anonymous')
     let shareUrl = itemWebUrl;
-    try {
-      const linkEndpoint = `https://graph.microsoft.com/v1.0/me/items/${itemId}/createLink`;
-      const linkRes = await axios.post(linkEndpoint, {
-        type: 'view',
-        scope: process.env.MS_LINK_SCOPE || 'anonymous' // 'organization' or 'anonymous'
-      }, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+    const itemLinkEndpoint = targetUser
+      ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(targetUser)}/drive/items/${itemId}/createLink`
+      : `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/createLink`;
 
-      if (linkRes.data && linkRes.data.link && linkRes.data.link.webUrl) {
-        shareUrl = linkRes.data.link.webUrl;
+    const preferredScope = (process.env.MS_LINK_SCOPE || 'organization').trim();
+    const scopesToTry = [preferredScope, 'organization', 'anonymous'];
+    const tried = new Set();
+
+    for (const scope of scopesToTry) {
+      if (tried.has(scope)) continue;
+      tried.add(scope);
+
+      try {
+        const linkRes = await axios.post(itemLinkEndpoint, {
+          type: 'view',
+          scope: scope
+        }, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (linkRes.data && linkRes.data.link && linkRes.data.link.webUrl) {
+          shareUrl = linkRes.data.link.webUrl;
+          break;
+        }
+      } catch (linkErr) {
+        console.warn(`OneDrive createLink with scope '${scope}' failed:`, linkErr.response?.data?.error?.message || linkErr.message);
       }
-    } catch (linkErr) {
-      console.warn('OneDrive createLink warning (using webUrl fallback):', linkErr.message);
     }
 
     return {
