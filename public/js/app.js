@@ -1488,6 +1488,7 @@ async function handleCreateMission(event) {
     attachmentName = 'เอกสารแนบกำหนดการ (ลิงก์แชร์ภายนอก)';
   }
 
+  try {
     let currentUserName = 'ผู้ดูแลระบบ';
     const sessionUser = sessionStorage.getItem('fmo_user');
     if (sessionUser) {
