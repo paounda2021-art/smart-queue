@@ -32,6 +32,7 @@ app.get('/uploads/:filename', (req, res) => {
 
 // ☁️ Route เปิด/ดาวน์โหลดไฟล์จาก OneDrive โดยตรง ไม่ต้องผ่าน Login และไม่ติดหน้าจอ Login
 app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async (req, res) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
   try {
     const itemId = req.params.itemId;
     const fileName = req.query.name || 'document.pdf';
