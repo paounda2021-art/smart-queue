@@ -58,6 +58,7 @@ function initApp() {
   populate24HourTimeOptions('alloc-start-time', '09:00');
   populate24HourTimeOptions('alloc-end-time', '17:00');
   setDefaultMissionTimes();
+  initAttachmentPreviewListeners();
 
   // 🚀 ดึงข้อมูล ผอ.ฝ่าย สำหรับหน้าจัดสรรคิวทันที (Instant Load < 100ms)
   loadDirectorSelectList();
@@ -1513,6 +1514,8 @@ async function handleCreateMission(event) {
       
       // 2. เคลียร์ฟอร์ม
       document.getElementById('form-quick-mission').reset();
+      const allocPrev = document.getElementById('alloc-attachment-preview');
+      if (allocPrev) { allocPrev.style.display = 'none'; allocPrev.innerHTML = ''; }
       setDefaultMissionTimes();
       
       // 3. รีเฟรชข้อมูลทุกระบบทุกหน้าจอให้อัปเดตเป็นปัจจุบันเรียลไทม์ (ไม่ต้องกด F5)
@@ -1528,6 +1531,61 @@ async function handleCreateMission(event) {
 
   } catch (err) {
     console.error('Error creating activity:', err);
+  }
+}
+
+function initAttachmentPreviewListeners() {
+  const allocFile = document.getElementById('alloc-attachment-file');
+  const allocUrl = document.getElementById('alloc-attachment-url');
+  const allocPreview = document.getElementById('alloc-attachment-preview');
+
+  function updateAllocPreview() {
+    if (!allocPreview) return;
+    if (allocFile && allocFile.files && allocFile.files.length > 0) {
+      const f = allocFile.files[0];
+      const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
+      allocPreview.style.display = 'block';
+      allocPreview.innerHTML = `<i class="fa-solid fa-file-pdf" style="color:#0284c7;"></i> <strong>ไฟล์ที่เลือกแนบจากเครื่อง:</strong> ${escapeHtml(f.name)} (${sizeMB} MB)`;
+    } else if (allocUrl && allocUrl.value.trim()) {
+      let url = allocUrl.value.trim();
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      allocPreview.style.display = 'block';
+      allocPreview.innerHTML = `<i class="fa-solid fa-link" style="color:#0284c7;"></i> <strong>ลิงก์แชร์เอกสารแนบที่เลือก:</strong> <a href="${url}" target="_blank" style="text-decoration:underline; color:#0369a1; font-weight:bold;">${escapeHtml(url)}</a>`;
+    } else {
+      allocPreview.style.display = 'none';
+      allocPreview.innerHTML = '';
+    }
+  }
+
+  if (allocFile) allocFile.addEventListener('change', updateAllocPreview);
+  if (allocUrl) {
+    allocUrl.addEventListener('input', updateAllocPreview);
+    allocUrl.addEventListener('change', updateAllocPreview);
+  }
+
+  const editFile = document.getElementById('edit-schedule-file');
+  const editUrl = document.getElementById('edit-schedule-url');
+  const editPreview = document.getElementById('edit-schedule-current-file');
+
+  function updateEditPreview() {
+    if (!editPreview) return;
+    if (editFile && editFile.files && editFile.files.length > 0) {
+      const f = editFile.files[0];
+      const sizeMB = (f.size / (1024 * 1024)).toFixed(2);
+      editPreview.style.display = 'block';
+      editPreview.innerHTML = `<i class="fa-solid fa-file-arrow-up" style="color:#ea580c;"></i> <strong>ไฟล์ใหม่ที่เลือกแนบ:</strong> ${escapeHtml(f.name)} (${sizeMB} MB)`;
+    } else if (editUrl && editUrl.value.trim()) {
+      let url = editUrl.value.trim();
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      editPreview.style.display = 'block';
+      editPreview.innerHTML = `<i class="fa-solid fa-link" style="color:#ea580c;"></i> <strong>ลิงก์แชร์เอกสารแนบที่เลือก:</strong> <a href="${url}" target="_blank" style="text-decoration:underline; color:#c2410c; font-weight:bold;">${escapeHtml(url)}</a>`;
+    }
+  }
+
+  if (editFile) editFile.addEventListener('change', updateEditPreview);
+  if (editUrl) {
+    editUrl.addEventListener('input', updateEditPreview);
+    editUrl.addEventListener('change', updateEditPreview);
   }
 }
 
