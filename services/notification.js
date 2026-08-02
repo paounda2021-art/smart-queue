@@ -135,7 +135,7 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
         backgroundColor: headerBgColor,
         paddingAll: '16px',
         contents: [
-          { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
           { type: 'text', text: headerTitle, color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs' }
         ]
       },
@@ -407,7 +407,7 @@ function createPersonalizedFlexCard(
         contents: [
           {
             type: 'text',
-            text: 'FMO SMART QUEUE SYSTEM (Auto Reply)',
+            text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue',
             color: '#e0f2fe',
             size: 'xxs',
             weight: 'bold'
@@ -922,7 +922,7 @@ async function sendUpcomingQueueNotice() {
               backgroundColor: '#0284c7',
               paddingAll: '16px',
               contents: [
-                { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+                { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
                 { type: 'text', text: '📢 แจ้งเตือนเตรียมพร้อมลำดับคิว (อสป.)', color: '#ffffff', size: 'sm', weight: 'bold', margin: 'xs', wrap: true }
               ]
             },
@@ -1075,7 +1075,7 @@ async function dispatchPreEventReminders() {
                 backgroundColor: headerBgColor,
                 paddingAll: '16px',
                 contents: [
-                  { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: headerSubColor, size: 'xxs', weight: 'bold' },
+                  { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: headerSubColor, size: 'xxs', weight: 'bold' },
                   { type: 'text', text: `${reminderTag}`, color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
                 ]
               },
@@ -1201,7 +1201,7 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
         contents: [
           {
             type: 'text',
-            text: 'FMO SMART QUEUE SYSTEM (Auto Reply)',
+            text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue',
             color: '#f3e8ff',
             size: 'xxs',
             weight: 'bold'
@@ -1351,7 +1351,7 @@ function createScheduleChangeFlexCardPayload(mission, person = null) {
         backgroundColor: '#ea580c',
         paddingAll: '16px',
         contents: [
-          { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#ffedd5', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#ffedd5', size: 'xxs', weight: 'bold' },
           { type: 'text', text: '📢 แจ้งเปลี่ยนแปลงกำหนดการกิจกรรม', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
         ]
       },
