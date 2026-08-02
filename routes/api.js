@@ -947,7 +947,7 @@ router.post('/line-webhook', async (req, res) => {
               // กดซ้ำขณะรอระบุผู้แทน
               replyMessages = [{
                 type: 'flex',
-                altText: '🔴 แจ้งติดภารกิจ / ขอลา',
+                altText: '🔴 แจ้งติดภารกิจ / ระบุผู้แทน',
                 contents: {
                   type: 'bubble',
                   header: {
@@ -957,7 +957,7 @@ router.post('/line-webhook', async (req, res) => {
                     paddingAll: '14px',
                     contents: [
                       { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#fee2e2', size: 'xxs', weight: 'bold' },
-                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
+                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ระบุผู้แทน', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
                     ]
                   },
                   body: {
@@ -969,7 +969,7 @@ router.post('/line-webhook', async (req, res) => {
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
                       { type: 'text', text: `เรียน ${String(assignment.name || '').replace(/^คุณ\s+/i, '')}`, size: 'xs', color: '#64748b' },
                       
-                      // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
+                      // 💡 แถบสีส้มสำหรับกรณีมีผู้ปฏิบัติงานแทน
                       {
                         type: 'box',
                         layout: 'vertical',
@@ -997,30 +997,22 @@ router.post('/line-webhook', async (req, res) => {
                         ]
                       },
 
-                      // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 2 (กรณีไม่มีผู้ปฏิบัติงานแทน)
+                      // 💡 แถบสีฟ้าอ่อนสำหรับข้อความติดภารกิจ อสป.
                       {
                         type: 'box',
                         layout: 'vertical',
-                        backgroundColor: '#f8fafc',
-                        borderColor: '#cbd5e1',
+                        backgroundColor: '#f0f9ff',
+                        borderColor: '#bae6fd',
                         borderWidth: '1px',
                         cornerRadius: '8px',
                         paddingAll: '10px',
                         contents: [
                           {
                             type: 'text',
-                            text: 'กรณีไม่มีผู้ปฏิบัติงานแทน :',
-                            weight: 'bold',
+                            text: 'หากติดภารกิจอื่น ๆ ที่เกี่ยวข้องกับงาน อสป. กรุณาติดต่อเจ้าหน้าที่ ผปส. เพื่อจัดสรรคิวแทนและบันทึกเหตุผลลงระบบ ก่อนกิจกรรมเริ่มอย่างน้อย 2 วัน',
                             size: 'xs',
-                            color: '#334155'
-                          },
-                          {
-                            type: 'text',
-                            text: 'กรุณากดปุ่มด้านล่างเพื่อให้ระบบเลื่อนคิวถัดไปให้อัตโนมัติ',
-                            size: 'xs',
-                            color: '#1e293b',
-                            wrap: true,
-                            margin: 'xs'
+                            color: '#0369a1',
+                            wrap: true
                           }
                         ]
                       }
@@ -1029,27 +1021,14 @@ router.post('/line-webhook', async (req, res) => {
                   footer: {
                     type: 'box',
                     layout: 'vertical',
-                    spacing: 'sm',
-                    paddingAll: '12px',
+                    paddingAll: '10px',
                     contents: [
-                      {
-                        type: 'button',
-                        style: 'secondary',
-                        color: '#f1f5f9',
-                        action: {
-                          type: 'postback',
-                          label: '🟡 ไม่มีคนแทน (ให้ระบบเลื่อนคิว)',
-                          data: `NO_SUB|${assignment.mission_id}|${assignment.personnel_id}`,
-                          displayText: '🟡 ไม่มีผู้ปฏิบัติงานแทน (ขอลา)'
-                        }
-                      },
                       {
                         type: 'text',
                         text: 'ระบบตอบกลับข้อความอัตโนมัติ',
                         size: 'xxs',
                         color: '#94a3b8',
-                        align: 'end',
-                        margin: 'xs'
+                        align: 'end'
                       }
                     ]
                   }
@@ -1099,7 +1078,7 @@ router.post('/line-webhook', async (req, res) => {
 
               replyMessages = [{
                 type: 'flex',
-                altText: '🔴 แจ้งติดภารกิจ / ขอลา',
+                altText: '🔴 แจ้งติดภารกิจ / ระบุผู้แทน',
                 contents: {
                   type: 'bubble',
                   header: {
@@ -1109,7 +1088,7 @@ router.post('/line-webhook', async (req, res) => {
                     paddingAll: '14px',
                     contents: [
                       { type: 'text', text: 'FMO SMART QUEUE SYSTEM (Auto Reply)', color: '#fee2e2', size: 'xxs', weight: 'bold' },
-                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ขอลา', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
+                      { type: 'text', text: '🔴 แจ้งติดภารกิจ / ระบุผู้แทน', color: '#ffffff', weight: 'bold', size: 'md', margin: 'xs' }
                     ]
                   },
                   body: {
@@ -1121,7 +1100,7 @@ router.post('/line-webhook', async (req, res) => {
                       { type: 'text', text: `กิจกรรม: ${assignment.mission_title || '-'}`, weight: 'bold', size: 'sm', wrap: true },
                       { type: 'text', text: `เรียน ${String(assignment.name || '').replace(/^คุณ\s+/i, '')}`, size: 'xs', color: '#64748b' },
                       
-                      // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 1 (กรณีมีผู้ปฏิบัติงานแทน)
+                      // 💡 แถบสีส้มสำหรับกรณีมีผู้ปฏิบัติงานแทน
                       {
                         type: 'box',
                         layout: 'vertical',
@@ -1149,30 +1128,22 @@ router.post('/line-webhook', async (req, res) => {
                         ]
                       },
 
-                      // 💡 แถบสีอ่อนสำหรับตัวเลือกที่ 2 (กรณีไม่มีผู้ปฏิบัติงานแทน)
+                      // 💡 แถบสีฟ้าอ่อนสำหรับข้อความติดภารกิจ อสป.
                       {
                         type: 'box',
                         layout: 'vertical',
-                        backgroundColor: '#f8fafc',
-                        borderColor: '#cbd5e1',
+                        backgroundColor: '#f0f9ff',
+                        borderColor: '#bae6fd',
                         borderWidth: '1px',
                         cornerRadius: '8px',
                         paddingAll: '10px',
                         contents: [
                           {
                             type: 'text',
-                            text: 'กรณีไม่มีผู้ปฏิบัติงานแทน :',
-                            weight: 'bold',
+                            text: 'หากติดภารกิจอื่น ๆ ที่เกี่ยวข้องกับงาน อสป. กรุณาติดต่อเจ้าหน้าที่ ผปส. เพื่อจัดสรรคิวแทนและบันทึกเหตุผลลงระบบ ก่อนกิจกรรมเริ่มอย่างน้อย 2 วัน',
                             size: 'xs',
-                            color: '#334155'
-                          },
-                          {
-                            type: 'text',
-                            text: 'กรุณากดปุ่มด้านล่างเพื่อให้ระบบเลื่อนคิวถัดไปให้อัตโนมัติ',
-                            size: 'xs',
-                            color: '#1e293b',
-                            wrap: true,
-                            margin: 'xs'
+                            color: '#0369a1',
+                            wrap: true
                           }
                         ]
                       }
@@ -1181,27 +1152,14 @@ router.post('/line-webhook', async (req, res) => {
                   footer: {
                     type: 'box',
                     layout: 'vertical',
-                    spacing: 'sm',
-                    paddingAll: '12px',
+                    paddingAll: '10px',
                     contents: [
-                      {
-                        type: 'button',
-                        style: 'secondary',
-                        color: '#f1f5f9',
-                        action: {
-                          type: 'postback',
-                          label: '🟡 ไม่มีคนแทน (ให้ระบบเลื่อนคิว)',
-                          data: `NO_SUB|${assignment.mission_id}|${assignment.personnel_id}`,
-                          displayText: '🟡 ไม่มีผู้ปฏิบัติงานแทน (ขอลา)'
-                        }
-                      },
                       {
                         type: 'text',
                         text: 'ระบบตอบกลับข้อความอัตโนมัติ',
                         size: 'xxs',
                         color: '#94a3b8',
-                        align: 'end',
-                        margin: 'xs'
+                        align: 'end'
                       }
                     ]
                   }
