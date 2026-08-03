@@ -33,15 +33,15 @@ app.get('/uploads/:filename', (req, res) => {
 // ☁️ Route เปิด/ดาวน์โหลดไฟล์จาก OneDrive โดยตรง ไม่ต้องผ่าน Login และไม่ติดหน้าจอ Login
 app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async (req, res) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
-  try {
-    const itemId = req.params.itemId;
-    const fileName = req.query.name || 'document.pdf';
+  const itemId = req.params.itemId;
+  const fileName = req.query.name || 'document.pdf';
 
-    if (!itemId) {
-      return res.status(400).send('Invalid file item id');
-    }
+  if (!itemId) {
+    return res.status(400).send('Invalid file item id');
+  }
 
-    // 1. ดึงลิงก์ดาวน์โหลดตรงชั่วคราว (@microsoft.graph.downloadUrl) จาก Graph API
+  // 1. ดึงลิงก์ดาวน์โหลดตรงชั่วคราว (@microsoft.graph.downloadUrl) จาก Graph API
+  if (onedriveService.isOneDriveConfigured()) {
     try {
       const directDownloadUrl = await onedriveService.getOneDriveDownloadUrl(itemId);
       if (directDownloadUrl && directDownloadUrl.startsWith('http')) {
@@ -51,24 +51,47 @@ app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async
       console.warn('Could not fetch direct downloadUrl, trying stream:', urlErr.message);
     }
 
-    // 2. สตรีมไฟล์ตรงจาก OneDrive หากไม่ได้ลิงก์ตรง
-    const streamRes = await onedriveService.getOneDriveFileStream(itemId);
-    const contentType = streamRes.headers['content-type'] || 'application/pdf';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+    try {
+      // 2. สตรีมไฟล์ตรงจาก OneDrive หากไม่ได้ลิงก์ตรง
+      const streamRes = await onedriveService.getOneDriveFileStream(itemId);
+      const contentType = streamRes.headers['content-type'] || 'application/pdf';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
 
-    streamRes.data.pipe(res);
-  } catch (err) {
-    console.error('Error proxying OneDrive download:', err.message);
-    res.status(500).send(`
-      <div style="font-family: sans-serif; padding: 30px; text-align: center; background: #f8fafc; border-radius: 12px; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0;">
-        <h3 style="color: #dc2626; margin-bottom: 10px;">❌ ไม่สามารถเปิดไฟล์จาก OneDrive ได้</h3>
-        <p style="color: #475569; font-size: 0.9rem;">สาเหตุ: ${err.message || 'สิทธิ์การเข้าถึงหมดอายุ หรือรหัสตั้งค่าใน .env ไม่ถูกต้อง'}</p>
-        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #cbd5e1;">
-        <small style="color: #94a3b8;">FMO Smart Queue System</small>
-      </div>
-    `);
+      return streamRes.data.pipe(res);
+    } catch (streamErr) {
+      console.warn('OneDrive stream failed, checking local fallback:', streamErr.message);
+    }
   }
+
+  // 3. Fallback: ตรวจหาไฟล์สำรองในโฟลเดอร์ public/uploads หาก OneDrive ไม่พร้อมใช้งาน
+  try {
+    const fs = require('fs');
+    const uploadsFolder = path.join(__dirname, 'public', 'uploads');
+    if (fs.existsSync(uploadsFolder)) {
+      const files = fs.readdirSync(uploadsFolder);
+      const matchedFile = files.find(f => f.includes(itemId) || (fileName && f.toLowerCase().includes(fileName.toLowerCase().substring(0, 8))));
+      if (matchedFile) {
+        const fullLocalPath = path.join(uploadsFolder, matchedFile);
+        return res.sendFile(fullLocalPath);
+      }
+    }
+  } catch (localErr) {
+    console.error('Local fallback check error:', localErr);
+  }
+
+  // 4. กรณีไม่พบไฟล์ทั้งบน OneDrive และในเซิร์ฟเวอร์ แสดงหน้าแจ้งเตือนที่สวยงาม
+  res.status(404).send(`
+    <div style="font-family: 'Sarabun', sans-serif; padding: 30px; text-align: center; background: #f8fafc; border-radius: 12px; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <h3 style="color: #ea580c; margin-bottom: 10px;">📄 เอกสารไฟล์แนบไม่อยู่ในระบบ</h3>
+      <p style="color: #475569; font-size: 0.95rem; line-height: 1.5;">ไฟล์เอกสารกำหนดการนี้อาจถูกอัปเดตใหม่ หรือไฟล์ต้นทางถูกย้ายในระบบแล้ว</p>
+      <div style="margin-top: 20px;">
+        <a href="${process.env.APP_BASE_URL || '/'}" style="display: inline-block; background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">🏠 เข้าสู่ระบบ FMO Smart Queue</a>
+      </div>
+      <hr style="margin: 20px 0; border: 0; border-top: 1px solid #cbd5e1;">
+      <small style="color: #94a3b8;">องค์การสะพานปลา (อสป.) • FMO Smart Queue System</small>
+    </div>
+  `);
 });
 
 // Serve static frontend files (Disable default index.html serving)
