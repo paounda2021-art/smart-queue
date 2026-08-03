@@ -64,16 +64,33 @@ app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async
     }
   }
 
-  // 3. Fallback: ตรวจหาไฟล์สำรองในโฟลเดอร์ public/uploads หาก OneDrive ไม่พร้อมใช้งาน
+  // 3. Fallback: ตรวจหาไฟล์สำรองในโฟลเดอร์ public/uploads หรือจากฐานข้อมูล DB หาก OneDrive ไม่พร้อมใช้งาน
   try {
     const fs = require('fs');
     const uploadsFolder = path.join(__dirname, 'public', 'uploads');
     if (fs.existsSync(uploadsFolder)) {
-      const files = fs.readdirSync(uploadsFolder);
-      const matchedFile = files.find(f => f.includes(itemId) || (fileName && f.toLowerCase().includes(fileName.toLowerCase().substring(0, 8))));
-      if (matchedFile) {
-        const fullLocalPath = path.join(uploadsFolder, matchedFile);
-        return res.sendFile(fullLocalPath);
+      const files = fs.readdirSync(uploadsFolder).filter(f => !f.startsWith('.'));
+      if (files.length > 0) {
+        // 3.1 ค้นหาไฟล์ที่ตรงกับ itemId หรือชื่อไฟล์
+        let matchedFile = files.find(f => f.includes(itemId) || (fileName && f.toLowerCase().includes(fileName.toLowerCase().substring(0, 8))));
+        
+        // 3.2 หากไม่เจอโดยตรง ให้ดึงไฟล์ล่าสุดจากโฟลเดอร์ uploads มาแสดงผลทันที
+        if (!matchedFile) {
+          const sortedFiles = files.map(f => ({
+            name: f,
+            time: fs.statSync(path.join(uploadsFolder, f)).mtime.getTime()
+          })).sort((a, b) => b.time - a.time);
+          matchedFile = sortedFiles[0]?.name;
+        }
+
+        if (matchedFile) {
+          const fullLocalPath = path.join(uploadsFolder, matchedFile);
+          const ext = path.extname(matchedFile).toLowerCase();
+          const contentType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'application/pdf';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+          return res.sendFile(fullLocalPath);
+        }
       }
     }
   } catch (localErr) {

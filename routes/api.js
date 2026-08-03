@@ -1931,18 +1931,16 @@ router.post('/line-webhook', async (req, res) => {
           }
 
           // -----------------------------------------------------------
-          // B5. ข้อความอื่น
+          // B5. ข้อความอื่นที่ไม่ใช่เรื่องคิว ➔ เงียบสนิท (Silent Drop)
           // -----------------------------------------------------------
           else {
-            messagesPayload = [{
-              type: 'text',
-              text:
-                'ℹ️ หากต้องการผูกบัญชี LINE กรุณาพิมพ์รหัสพนักงาน ' +
-                'เช่น EMP-025 ค่ะ'
-            }];
+            console.log(`[DEBUG] 🔇 ละเว้นข้อความทั่วไปที่ไม่ใช่เรื่องคิว: "${rawText}" (Silent Drop)`);
+            messagesPayload = []; // ไม่ตอบกลับข้อความทั่วไปที่ไม่ใช่เรื่องคิว
           }
 
-          await replyLine(replyToken, messagesPayload);
+          if (messagesPayload.length > 0) {
+            await replyLine(replyToken, messagesPayload);
+          }
         }
       } catch (eventError) {
         console.error(
@@ -3999,44 +3997,7 @@ router.post('/personnel/import-csv', async (req, res) => {
 // -------------------------------------------------------------
 // 12. LINE OA WEBHOOK ENDPOINT
 // -------------------------------------------------------------
-router.post('/line-webhook', async (req, res) => {
-  res.status(200).send('OK');
-
-  const events = req.body.events || [];
-  for (const event of events) {
-    if (event.type === 'message' && event.message.type === 'text') {
-      const lineUserId = event.source.userId;
-      const userText = event.message.text.trim().toUpperCase();
-      const replyToken = event.replyToken;
-
-      try {
-        const person = await dbGet(`SELECT * FROM personnel WHERE UPPER(emp_code) = ?`, [userText]);
-
-        let replyMsg = '';
-        if (person) {
-          await dbRun(`UPDATE personnel SET line_user_id = ? WHERE id = ?`, [lineUserId, person.id]);
-          replyMsg = `✅ ผูกบัญชีสำเร็จ!\n\nสวัสดี   ${person.name}\nระบบ FMO Smart Queue ได้เชื่อมต่อกับ LINE ของ  เรียบร้อยแล้วค่ะ`;
-        } else {
-          replyMsg = `❌ ไม่พบรหัสพนักงาน "${userText}" ในระบบ\n\nกรุณาพิมพ์รหัสพนักงานใหม่อีกครั้ง เช่น EMP-001 หรือ DIR-01 ค่ะ`;
-        }
-
-        if (process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-          await axios.post('https://api.line.me/v2/bot/message/reply', {
-            replyToken: replyToken,
-            messages: [{ type: 'text', text: replyMsg }]
-          }, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error handling LINE Webhook:', err);
-      }
-    }
-  }
-});
+// 12. LINE OA WEBHOOK ENDPOINT (HANDLED AT LINE 637)
 
 
 // GET /api/missions/:id/pdf - ออกเอกสารคำสั่งจัดสรรกิจกรรม (PDF Mission Order Document)
