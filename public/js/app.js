@@ -532,12 +532,9 @@ async function loadRecentMissionsList() {
     `;
 
     recent.forEach(m => {
-      const statusUpper = String(m.status || '').toUpperCase();
-      const statusBadge = (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED')
+      const statusBadge = (m.status === 'SUCCESS' || m.status === 'COMPLETED')
         ? '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>' 
-        : (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS')
-          ? '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>'
-          : '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
+        : '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
 
 
       html += `
@@ -1866,20 +1863,16 @@ function renderMissionsTable(list) {
   let html = '';
   list.forEach(m => {
     const statusUpper = String(m.status || '').toUpperCase();
-    let statusBadge = '';
-    let newBadge = '';
-
+    let statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
     if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
       statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
-      newBadge = '';
     } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
-      statusBadge = '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
-      newBadge = ' <span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
-    } else {
-      statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
-      const isRecent = isNewMission(m.created_at || m.start_date);
-      newBadge = isRecent ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
+      statusBadge = '<span class="badge" style="background:#0284c7; color:#ffffff; font-weight:700;"><i class="fa-solid fa-hourglass-half"></i> ON PROCESS</span>';
     }
+
+    const isRecent = isNewMission(m.created_at || m.start_date);
+    const newBadge = isRecent ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
+
 
     const creatorName = m.created_by || 'ผู้ดูแลระบบ';
     const createdAtFormatted = formatDate(m.created_at || m.start_date);
@@ -3172,7 +3165,7 @@ function renderUserTable(users) {
         <td style="white-space:nowrap;">
           <button class="btn btn-sm btn-secondary" onclick="openUserModal(${u.id})" title="แก้ไข"><i class="fa-solid fa-pen-to-square text-sky"></i></button>
           ${unbindBtn}
-          <button class="btn btn-sm btn-secondary" onclick="deleteUser(${u.id}, '${escapeHtml(u.name)}', '${u.emp_code}')" title="ลบ"><i class="fa-solid fa-trash text-rose"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="deleteUser(${u.id}, '${u.name}', '${u.emp_code}')" title="ลบ"><i class="fa-solid fa-trash text-rose"></i></button>
         </td>
       </tr>
     `;
@@ -3404,189 +3397,6 @@ async function saveScheduleChanges(e) {
 
 window.openEditScheduleModal = openEditScheduleModal;
 window.saveScheduleChanges = saveScheduleChanges;
-
-// =========================================================================
-// ADMIN USER MANAGEMENT: QUICK QUEUE & ACKNOWLEDGMENT CONTROL FUNCTIONS
-// =========================================================================
-
-async function openAdminQueueEditModal(userId) {
-  const u = (typeof allUsersData !== 'undefined' && Array.isArray(allUsersData))
-    ? allUsersData.find(x => Number(x.id) === Number(userId))
-    : null;
-
-  const name = u ? u.name : 'พนักงาน';
-  const code = u ? (u.emp_code || '') : '';
-  const currentOrder = u ? (u.queue_order || 1) : 1;
-  const isHold = u && (u.queue_status === 'HOLD' || u.status === 'HOLD');
-
-  const { value: formValues } = await Swal.fire({
-    title: `<i class="fa-solid fa-list-ol text-cyan"></i> ปรับแต่งคิว: ${escapeHtml(name)}`,
-    html: `
-      <div style="text-align: left; font-size: 0.95rem; padding: 0 4px;">
-        <div style="margin-bottom: 12px; color: #64748b;">รหัสพนักงาน: <strong>${escapeHtml(code)}</strong></div>
-        
-        <div style="margin-bottom: 14px;">
-          <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">ลำดับคิวในรอบ (Queue Order):</label>
-          <input id="swal-queue-order" type="number" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;" value="${currentOrder}" min="1">
-        </div>
-
-        <div style="margin-bottom: 14px;">
-          <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">สถานะการวนคิว:</label>
-          <select id="swal-queue-status" class="swal2-select" style="width: 100%; margin: 0; box-sizing: border-box;" onchange="document.getElementById('swal-hold-reason-box').style.display = this.value === 'HOLD' ? 'block' : 'none'">
-            <option value="WAITING" ${!isHold ? 'selected' : ''}>🟢 WAITING (พร้อมจัดสรร / วนคิวปกติ)</option>
-            <option value="HOLD" ${isHold ? 'selected' : ''}>🟡 HOLD (พักคิวชั่วคราว / ข้ามคิว)</option>
-          </select>
-        </div>
-
-        <div id="swal-hold-reason-box" style="margin-bottom: 14px; display: ${isHold ? 'block' : 'none'};">
-          <label style="font-weight: 600; display: block; margin-bottom: 4px; color: #334155;">ระบุเหตุผลการพักคิว (Hold Reason):</label>
-          <input id="swal-hold-reason" type="text" class="swal2-input" style="width: 100%; margin: 0; box-sizing: border-box;" placeholder="เช่น ติดภารกิจต่างจังหวัด / ลาพักร้อน">
-        </div>
-      </div>
-    `,
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: '<i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลคิว',
-    cancelButtonText: 'ยกเลิก',
-    confirmButtonColor: '#0284c7',
-    preConfirm: () => {
-      return {
-        queue_order: document.getElementById('swal-queue-order').value,
-        queue_status: document.getElementById('swal-queue-status').value,
-        hold_reason: document.getElementById('swal-hold-reason').value
-      }
-    }
-  });
-
-  if (formValues) {
-    try {
-      const res = await fetch('/api/admin/update-queue-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personnel_id: Number(userId),
-          queue_order: formValues.queue_order ? parseInt(formValues.queue_order, 10) : null,
-          queue_status: formValues.queue_status,
-          hold_reason: formValues.hold_reason
-        })
-      });
-      const result = await res.json();
-      if (result.success) {
-        Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ', text: result.message, timer: 1500, showConfirmButton: false });
-        if (typeof loadUserManagementData === 'function') loadUserManagementData();
-        if (typeof loadQueueBoard === 'function') loadQueueBoard();
-      } else {
-        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: result.error || 'ไม่สามารถอัปเดตได้' });
-      }
-    } catch (err) {
-      console.error('Error updating queue order via Swal:', err);
-      Swal.fire({ icon: 'error', title: 'เชื่อมต่อล้มเหลว', text: err.message });
-    }
-  }
-}
-
-async function openAdminUserAckModal(userId) {
-  const u = (typeof allUsersData !== 'undefined' && Array.isArray(allUsersData))
-    ? allUsersData.find(x => Number(x.id) === Number(userId))
-    : null;
-  const name = u ? u.name : 'พนักงาน';
-  const code = u ? (u.emp_code || '') : '';
-
-  Swal.fire({
-    title: `<i class="fa-solid fa-clipboard-check text-purple"></i> ภารกิจของ: ${escapeHtml(name)}`,
-    html: `
-      <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px; text-align: left;">รหัสพนักงาน: <strong>${escapeHtml(code)}</strong></div>
-      <div id="swal-ack-loading" style="padding: 1.5rem; color: #64748b;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><span style="font-size: 0.9rem; margin-top: 6px; display: inline-block;">กำลังดึงรายการกิจกรรม...</span></div>
-      <div id="swal-ack-container" style="max-height: 380px; overflow-y: auto; text-align: left;"></div>
-    `,
-    showConfirmButton: false,
-    showCloseButton: true,
-    width: '680px',
-    didOpen: async () => {
-      try {
-        const res = await fetch(`/api/users/${userId}/missions`);
-        const result = await res.json();
-        const loading = document.getElementById('swal-ack-loading');
-        const container = document.getElementById('swal-ack-container');
-        if (loading) loading.style.display = 'none';
-
-        if (result.success && result.assignments) {
-          const list = result.assignments;
-          if (list.length === 0) {
-            if (container) container.innerHTML = '<p style="text-align:center; color:#64748b; padding: 1.5rem;">ยังไม่มีประวัติการได้รับจัดสรรกิจกรรม</p>';
-            return;
-          }
-
-          let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
-          list.forEach(item => {
-            let ackBadge = '';
-            if (item.ack_status === 'ACKNOWLEDGED') {
-              ackBadge = '<span class="badge badge-completed" style="background:#10b981; color:#fff; padding:3px 8px; border-radius:10px; font-size:0.75rem;"><i class="fa-solid fa-check-circle"></i> รับทราบแล้ว</span>';
-            } else if (item.ack_status === 'DECLINED_BUSY') {
-              ackBadge = '<span class="badge badge-hold" style="background:#ef4444; color:#fff; padding:3px 8px; border-radius:10px; font-size:0.75rem;"><i class="fa-solid fa-times-circle"></i> ติดภารกิจ</span>';
-            } else {
-              ackBadge = '<span class="badge badge-waiting" style="background:#f59e0b; color:#fff; padding:3px 8px; border-radius:10px; font-size:0.75rem;"><i class="fa-solid fa-clock"></i> รอการตอบรับ</span>';
-            }
-
-            const roleText = item.is_leader === 1 ? '<span class="badge" style="background:#a855f7; color:#fff; padding:2px 6px; border-radius:8px; font-size:0.75rem;">หัวหน้าคณะ</span>' : '<span class="badge" style="background:#64748b; color:#fff; padding:2px 6px; border-radius:8px; font-size:0.75rem;">สมาชิก</span>';
-
-            html += `
-              <div style="background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 200px;">
-                  <div style="font-size: 0.92rem; font-weight: 700; color: #1e293b; margin-bottom: 2px;">
-                    <code>${item.mission_code || 'ACT'}</code> ${escapeHtml(item.mission_title)} ${roleText}
-                  </div>
-                  <div style="font-size: 0.78rem; color: #64748b;">
-                    📍 ${escapeHtml(item.location || '-')} | 📅 ${formatDate(item.start_date)}
-                  </div>
-                  <div style="margin-top: 4px;">${ackBadge}</div>
-                </div>
-
-                <div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
-                  <button class="btn btn-sm" onclick="swalUpdateAck(${item.assignment_id}, 'ACKNOWLEDGED', ${userId})" style="font-size: 0.75rem; padding: 5px 9px; background: #10b981; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
-                    🟢 รับทราบแทน
-                  </button>
-                  <button class="btn btn-sm" onclick="swalUpdateAck(${item.assignment_id}, 'PENDING_ACK', ${userId})" style="font-size: 0.75rem; padding: 5px 9px; background: #f59e0b; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
-                    🟡 รอตอบรับ
-                  </button>
-                  <button class="btn btn-sm" onclick="swalUpdateAck(${item.assignment_id}, 'DECLINED_BUSY', ${userId})" style="font-size: 0.75rem; padding: 5px 9px; background: #ef4444; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
-                    🔴 ติดภารกิจ
-                  </button>
-                </div>
-              </div>
-            `;
-          });
-          html += '</div>';
-          if (container) container.innerHTML = html;
-        }
-      } catch (err) {
-        console.error('Error fetching user missions for Swal:', err);
-      }
-    }
-  });
-}
-
-async function swalUpdateAck(assignmentId, ackStatus, userId) {
-  try {
-    const res = await fetch('/api/admin/update-assignment-ack', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignment_id: assignmentId, ack_status: ackStatus })
-    });
-    const result = await res.json();
-    if (result.success) {
-      openAdminUserAckModal(userId);
-      if (typeof loadAllMissions === 'function') loadAllMissions();
-      if (typeof loadUserManagementData === 'function') loadUserManagementData();
-    }
-  } catch (err) {
-    console.error('Error updating swal ack:', err);
-  }
-}
-
-window.openAdminQueueEditModal = openAdminQueueEditModal;
-window.openAdminUserAckModal = openAdminUserAckModal;
-window.swalUpdateAck = swalUpdateAck;
 
 
 

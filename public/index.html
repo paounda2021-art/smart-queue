@@ -1067,7 +1067,7 @@
   </div>
 
   <!-- PEER SWAP MODAL -->
-  <div id="modal-peer-swap" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-peer-swap')">
+  <div id="modal-peer-swap" class="modal-overlay">
     <div class="modal-box" style="max-width: 580px;">
       <div class="modal-header">
         <div class="modal-title"><i class="fa-solid fa-arrows-rotate text-purple"></i> ยื่นคำขอ & อนุมัติสลับคิวพนักงาน (Peer Swap)</div>
@@ -1114,7 +1114,7 @@
   </div>
 
   <!-- USER FORM MODAL (ADD / EDIT USER) -->
-  <div id="modal-user-form" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-user-form')">
+  <div id="modal-user-form" class="modal-overlay">
     <div class="modal-box" style="max-width: 600px;">
       <div class="modal-header">
         <div class="modal-title" id="user-modal-title"><i class="fa-solid fa-user-pen text-purple"></i> ข้อมูลผู้ใช้งาน</div>
@@ -1219,70 +1219,41 @@
       </div>
     </div>
 
-    <!-- MODAL: ADMIN QUEUE ORDER & STATUS EDIT -->
-    <div id="modal-admin-queue-edit" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-admin-queue-edit')">
-      <div class="modal-box" style="max-width: 500px;">
-        <div class="modal-header" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff;">
-          <div class="modal-title" style="color: #fff;"><i class="fa-solid fa-arrow-down-short-wide"></i> ปรับแต่งลำดับคิว & สถานะพักคิว</div>
-          <button class="modal-close" onclick="closeModal('modal-admin-queue-edit')" style="color: #fff;">&times;</button>
+    <!-- 7. CUSTOM CONFIRMATION MODAL -->
+    <div id="modal-custom-confirm" class="modal-overlay" tabindex="-1">
+      <div class="modal-box" style="max-width: 440px; text-align: center; padding: 1.75rem 1.5rem;">
+        <div id="custom-confirm-icon" style="font-size: 3rem; color: #0ea5e9; margin-bottom: 0.75rem;">
+          <i class="fa-solid fa-circle-question"></i>
         </div>
-        <div class="modal-body" style="padding: 1.25rem;">
-          <p style="font-size: 0.95rem; color: var(--text-heading); margin-bottom: 1rem;">
-            ผู้ใช้งาน: <strong id="admin-queue-user-name" style="color: var(--primary);">-</strong> (<span id="admin-queue-user-code">-</span>)
-          </p>
-          <input type="hidden" id="admin-queue-personnel-id">
-
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-weight: 600;"><i class="fa-solid fa-list-ol text-cyan"></i> ลำดับคิวในรอบ (Queue Order)</label>
-            <input type="number" id="admin-queue-order-input" class="form-control" min="1" max="500" placeholder="เช่น 1, 2, 3">
-          </div>
-
-          <div class="form-group" style="margin-bottom: 1rem;">
-            <label style="font-weight: 600;"><i class="fa-solid fa-toggle-on text-purple"></i> สถานะการวนคิว</label>
-            <select id="admin-queue-status-select" class="form-control" onchange="toggleAdminHoldReasonInput()">
-              <option value="WAITING">🟢 WAITING (พร้อมจัดสรร / วนคิวปกติ)</option>
-              <option value="HOLD">🟡 HOLD (พักคิวชั่วคราว / ข้ามคิว)</option>
-            </select>
-          </div>
-
-          <div class="form-group" id="admin-hold-reason-box" style="display: none; margin-bottom: 1rem;">
-            <label style="font-weight: 600;"><i class="fa-solid fa-comment-dots text-warning"></i> ระบุเหตุผลการพักคิว (Hold Reason)</label>
-            <input type="text" id="admin-hold-reason-input" class="form-control" placeholder="เช่น ติดภารกิจต่างจังหวัด / ลาพักร้อน">
-          </div>
-        </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 1rem; border-top: 1px solid var(--card-border);">
-          <button class="btn btn-secondary" onclick="closeModal('modal-admin-queue-edit')">ยกเลิก</button>
-          <button class="btn btn-primary" onclick="saveAdminQueueEdit()" style="background: #0284c7; border-color: #0284c7; font-weight: bold;"><i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลคิว</button>
+        <h3 id="custom-confirm-title" style="font-size: 1.25rem; color: var(--text-heading); margin-bottom: 0.5rem; font-weight: 700;">
+          ยืนยันการทำรายการ
+        </h3>
+        <p id="custom-confirm-message" style="font-size: 0.95rem; color: var(--text-sub); margin-bottom: 1.5rem; line-height: 1.45;">
+          คุณต้องการดำเนินการต่อหรือไม่?
+        </p>
+        <div style="display: flex; justify-content: center; gap: 0.75rem;">
+          <button id="custom-confirm-cancel-btn" class="btn btn-secondary" style="min-width: 110px; padding: 0.65rem 1.25rem;">
+            ยกเลิก
+          </button>
+          <button id="custom-confirm-ok-btn" class="btn btn-primary" style="min-width: 120px; padding: 0.65rem 1.25rem; font-weight: 600;">
+            ยืนยัน
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- MODAL: ADMIN USER MISSIONS ACKNOWLEDGMENT MANAGEMENT -->
-    <div id="modal-admin-user-ack" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-admin-user-ack')">
-      <div class="modal-box" style="max-width: 720px;">
-        <div class="modal-header" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #fff;">
-          <div class="modal-title" style="color: #fff;"><i class="fa-solid fa-clipboard-check"></i> จัดสรรภารกิจ & ปรับสถานะการรับทราบแทน</div>
-          <button class="modal-close" onclick="closeModal('modal-admin-user-ack')" style="color: #fff;">&times;</button>
-        </div>
-        <div class="modal-body" style="padding: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--card-border);">
-            <div style="font-size: 0.95rem; color: var(--text-heading);">
-              ผู้ใช้งาน: <strong id="admin-ack-user-name" style="color: #7c3aed;">-</strong> (<span id="admin-ack-user-code">-</span>)
-            </div>
-            <span class="badge badge-purple" id="admin-ack-missions-count">0 กิจกรรม</span>
-          </div>
+  <script src="/js/app.js?v=1.3.3"></script>
 
-          <div id="admin-ack-missions-list" style="max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-            <p style="color: var(--text-muted); text-align: center;">กำลังดึงรายการกิจกรรม...</p>
-          </div>
-        </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 1rem; border-top: 1px solid var(--card-border);">
-          <button class="btn btn-secondary" onclick="closeModal('modal-admin-user-ack')">ปิดหน้าต่าง</button>
-        </div>
-      </div>
-    </div>
+</body>
+</html>
 
-  <script src="/js/app.js?v=1.3.4"></script>
+
+
+
+
+
+
+
 
 </body>
 </html>
