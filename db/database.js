@@ -49,7 +49,7 @@ async function initSchema() {
       line_user_id VARCHAR(100),
       password VARCHAR(255),
       menu_permissions TEXT,
-      created_at DATETIME DEFAULT datetime('now', '+7 hours')
+      created_at DATETIME DEFAULT (datetime('now', '+7 hours'))
     );
   `);
 
@@ -76,7 +76,7 @@ async function initSchema() {
         line_user_id VARCHAR(100),
         password VARCHAR(255),
         menu_permissions TEXT,
-        created_at DATETIME DEFAULT datetime('now', '+7 hours')
+        created_at DATETIME DEFAULT (datetime('now', '+7 hours'))
       );`);
       await dbRun(`INSERT INTO personnel_new (id, emp_code, name, role_type, department, position, phone, email, line_user_id, created_at) SELECT id, emp_code, name, role_type, department, position, phone, email, line_user_id, created_at FROM personnel;`);
       await dbRun(`DROP TABLE personnel;`);
@@ -99,7 +99,7 @@ async function initSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       role_type VARCHAR(20) UNIQUE NOT NULL,
       current_round INTEGER DEFAULT 1,
-      updated_at DATETIME DEFAULT datetime('now', '+7 hours')
+      updated_at DATETIME DEFAULT (datetime('now', '+7 hours'))
     );
   `);
 
@@ -133,7 +133,7 @@ async function initSchema() {
       required_staff INTEGER DEFAULT 1,
       status VARCHAR(20) DEFAULT 'SCHEDULED',
       created_by VARCHAR(100) DEFAULT 'Admin',
-      created_at DATETIME DEFAULT datetime('now', '+7 hours')
+      created_at DATETIME DEFAULT (datetime('now', '+7 hours'))
     );
   `);
 
@@ -149,7 +149,7 @@ async function initSchema() {
       assignment_status VARCHAR(20) DEFAULT 'JOINED',
       substituted_for_personnel_id INTEGER,
       notes TEXT,
-      assigned_at DATETIME DEFAULT datetime('now', '+7 hours'),
+      assigned_at DATETIME DEFAULT (datetime('now', '+7 hours')),
       FOREIGN KEY(mission_id) REFERENCES missions(id) ON DELETE CASCADE,
       FOREIGN KEY(personnel_id) REFERENCES personnel(id) ON DELETE CASCADE
     );
@@ -178,7 +178,7 @@ async function initSchema() {
       subject_title TEXT,
       content_body TEXT,
       status VARCHAR(20) DEFAULT 'SENT',
-      sent_at DATETIME DEFAULT datetime('now', '+7 hours'),
+      sent_at DATETIME DEFAULT (datetime('now', '+7 hours')),
       FOREIGN KEY(mission_id) REFERENCES missions(id) ON DELETE CASCADE
     );
   `);
@@ -193,7 +193,7 @@ async function initSchema() {
       reason TEXT,
       status VARCHAR(20) DEFAULT 'APPROVED',
       approved_by VARCHAR(100) DEFAULT 'ADMIN',
-      created_at DATETIME DEFAULT datetime('now', '+7 hours'),
+      created_at DATETIME DEFAULT (datetime('now', '+7 hours')),
       FOREIGN KEY(requester_id) REFERENCES personnel(id) ON DELETE CASCADE,
       FOREIGN KEY(target_id) REFERENCES personnel(id) ON DELETE CASCADE
     );
