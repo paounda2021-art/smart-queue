@@ -4384,6 +4384,35 @@ router.post('/admin/update-assignment-ack', async (req, res) => {
     if (assignment) {
       if (ack_status === 'ACKNOWLEDGED' && assignment.personnel_id) {
         await dbRun(`UPDATE queue_members SET last_assigned_at = datetime('now', '+7 hours') WHERE personnel_id = ?;`, [assignment.personnel_id]);
+
+        // 💡 ส่ง LINE Push ยืนยันเพื่อให้ห้องแชทของพนักงานท่านนี้เด้งขึ้นเป็นลำดับล่าสุดบนสุดใน LINE OA Manager
+        try {
+          const p = await dbGet(`SELECT line_user_id, name FROM personnel WHERE id = ?;`, [assignment.personnel_id]);
+          const m = await dbGet(`SELECT mission_title FROM missions WHERE id = ?;`, [assignment.mission_id]);
+          const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+          if (p && p.line_user_id && lineToken) {
+            const cleanName = String(p.name || '').replace(/^คุณ\s+/i, '');
+            await axios.post(
+              'https://api.line.me/v2/bot/message/push',
+              {
+                to: p.line_user_id,
+                messages: [{
+                  type: 'text',
+                  text: `✅ เจ้าหน้าที่ได้บันทึกการรับทราบกิจกรรม "${m ? m.mission_title : ''}" ให้คุณ ${cleanName} เรียบร้อยแล้วค่ะ ขอบคุณค่ะ 🙏`
+                }]
+              },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${lineToken}`
+                }
+              }
+            );
+          }
+        } catch (pushErr) {
+          console.error('Error sending LINE push on admin ack update:', pushErr.message);
+        }
       }
       if (assignment.mission_id) {
         await checkAndUpdateMissionStatus(assignment.mission_id);
