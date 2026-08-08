@@ -277,9 +277,11 @@ function populate24HourTimeOptions(selectId, defaultTime = '09:00') {
 // -------------------------------------------------------------
 function initTheme() {
   const savedTheme = localStorage.getItem('fmo_theme');
-  if (savedTheme === 'light') {
+  if (!savedTheme || savedTheme === 'light') {
     document.body.classList.add('light-mode');
     updateThemeIcon(true);
+  } else {
+    updateThemeIcon(false);
   }
 }
 
