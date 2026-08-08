@@ -318,7 +318,7 @@ async function checkAndAdvanceRound(roleType) {
   await dbRun(
     `UPDATE queue_state
      SET current_round = ?,
-         updated_at = CURRENT_TIMESTAMP
+         updated_at = datetime('now', '+7 hours')
      WHERE role_type = ?;`,
     [nextRound, normalizedRoleType]
   );
@@ -421,7 +421,7 @@ async function checkAndAdvanceRound(roleType) {
        SET current_round = ?,
            status = 'HOLD',
            hold_reason = 'สำรอง ไม่เข้าคิวอัตโนมัติ',
-           hold_timestamp = CURRENT_TIMESTAMP
+           hold_timestamp = datetime('now', '+7 hours')
        WHERE personnel_id IN (
          SELECT id
          FROM personnel
@@ -893,7 +893,7 @@ router.post('/line-webhook', async (req, res) => {
                     UPDATE mission_assignments
                     SET
                       ack_status = 'ACKNOWLEDGED',
-                      ack_at = CURRENT_TIMESTAMP
+                      ack_at = datetime('now', '+7 hours')
                     WHERE id = ?;
                     `,
                     [assignment.id]
@@ -1306,14 +1306,14 @@ router.post('/line-webhook', async (req, res) => {
                  SET assignment_status = 'DECLINED_NO_SUBSTITUTE', 
                      ack_status = 'DECLINED_BUSY', 
                      decline_reason = 'ติดภารกิจ/ขอลา (ไม่มีคนแทน)', 
-                     ack_at = CURRENT_TIMESTAMP 
+                     ack_at = datetime('now', '+7 hours') 
                  WHERE id = ?;`,
                 [assignment.id]
               );
 
               await dbRun(
                 `UPDATE queue_members 
-                 SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+                 SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
                  WHERE personnel_id = ?;`,
                 [personnelId]
               );
@@ -1348,7 +1348,7 @@ router.post('/line-webhook', async (req, res) => {
 
                 await dbRun(
                   `UPDATE queue_members 
-                   SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+                   SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
                    WHERE personnel_id = ?;`,
                   [nextCandidate.id]
                 );
@@ -1798,7 +1798,7 @@ router.post('/line-webhook', async (req, res) => {
                       decline_reason = ?,
                       notes = ?,
                       substituted_for_personnel_id = ?,
-                      ack_at = CURRENT_TIMESTAMP
+                      ack_at = datetime('now', '+7 hours')
                   WHERE id = ?;
                   `,
                   [
@@ -2253,7 +2253,7 @@ if (staffCount > 0) {
       if (skipItem.personnel_id) {
         await dbRun(
           `UPDATE queue_members 
-           SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP 
+           SET status = 'HOLD', hold_reason = ?, hold_timestamp = datetime('now', '+7 hours') 
            WHERE personnel_id = ?;`,
           [skipItem.reason || 'ติดกิจกรรมซ้อน (Hold_In_Round)', skipItem.personnel_id]
         );
@@ -2296,7 +2296,7 @@ if (staffCount > 0) {
 
       await dbRun(
         `UPDATE queue_members 
-         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ?;`,
         [pId]
       );
@@ -2315,7 +2315,7 @@ if (staffCount > 0) {
 
       await dbRun(
         `UPDATE queue_members 
-         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ?;`,
         [pId]
       );
@@ -2427,7 +2427,7 @@ router.post('/missions/create', async (req, res) => {
         SET
           status = 'HOLD',
           hold_reason = ?,
-          hold_timestamp = CURRENT_TIMESTAMP
+          hold_timestamp = datetime('now', '+7 hours')
         WHERE personnel_id = ?;
         `,
         [
@@ -2581,7 +2581,7 @@ router.post('/missions/create', async (req, res) => {
           status = 'COMPLETED',
           hold_reason = NULL,
           hold_timestamp = NULL,
-          last_assigned_at = CURRENT_TIMESTAMP
+          last_assigned_at = datetime('now', '+7 hours')
         WHERE personnel_id = ?
           AND UPPER(role_type) = 'DIRECTOR'
           AND current_round = ?;
@@ -2668,7 +2668,7 @@ router.post('/missions/create', async (req, res) => {
           status = 'COMPLETED',
           hold_reason = NULL,
           hold_timestamp = NULL,
-          last_assigned_at = CURRENT_TIMESTAMP
+          last_assigned_at = datetime('now', '+7 hours')
         WHERE id = ?;
         `,
         [queueMember.id]
@@ -3085,7 +3085,7 @@ router.post('/missions/substitute', async (req, res) => {
            ack_status = 'DECLINED_BUSY',
            decline_reason = ?,
            notes = ?,
-           ack_at = CURRENT_TIMESTAMP
+           ack_at = datetime('now', '+7 hours')
        WHERE mission_id = ? AND personnel_id = ? AND assignment_status IN ('JOINED', 'BUSY_PENDING');`,
       [`เปลี่ยนตัวกะทันหัน: ${reasonText}`, `เปลี่ยนตัวให้ ${substitutePerson.name} (${substitutePerson.emp_code}) ปฏิบัติงานแทน`, mission_id, original_personnel_id]
     );
@@ -3093,7 +3093,7 @@ router.post('/missions/substitute', async (req, res) => {
     // 2. ปรับสถานะพนักงานเดิมในคิวเป็น HOLD
     await dbRun(
       `UPDATE queue_members 
-       SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP 
+       SET status = 'HOLD', hold_reason = ?, hold_timestamp = datetime('now', '+7 hours') 
        WHERE personnel_id = ?;`,
       [`เปลี่ยนตัวกะทันหันในกิจกรรม #${mission_id} (${reasonText})`, original_personnel_id]
     );
@@ -3134,7 +3134,7 @@ router.post('/missions/substitute', async (req, res) => {
     if (subQueueMember && subQueueMember.status !== 'COMPLETED') {
       await dbRun(
         `UPDATE queue_members 
-         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ? AND UPPER(role_type) = UPPER(?);`,
         [substitutePerson.id, roleType]
       );
@@ -3142,7 +3142,7 @@ router.post('/missions/substitute', async (req, res) => {
     } else {
       await dbRun(
         `UPDATE queue_members 
-         SET last_assigned_at = CURRENT_TIMESTAMP 
+         SET last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ? AND UPPER(role_type) = UPPER(?);`,
         [substitutePerson.id, roleType]
       );
@@ -3190,7 +3190,7 @@ router.post('/queue/skip', async (req, res) => {
 
     await dbRun(
       `UPDATE queue_members 
-       SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP 
+       SET status = 'HOLD', hold_reason = ?, hold_timestamp = datetime('now', '+7 hours') 
        WHERE personnel_id = ?;`,
       [reason || 'ติดกิจกรรมซ้อน (Hold_In_Round)', personnel_id]
     );
@@ -3634,7 +3634,7 @@ router.post('/missions/respond', async (req, res) => {
     if (response_status === 'ACKNOWLEDGED') {
       await dbRun(
         `UPDATE mission_assignments 
-         SET ack_status = 'ACKNOWLEDGED', ack_at = CURRENT_TIMESTAMP 
+         SET ack_status = 'ACKNOWLEDGED', ack_at = datetime('now', '+7 hours') 
          WHERE id = ?;`,
         [assignment.id]
       );
@@ -3659,7 +3659,7 @@ router.post('/missions/respond', async (req, res) => {
          SET assignment_status = 'DECLINED_NO_SUBSTITUTE', 
              ack_status = 'DECLINED_BUSY', 
              decline_reason = ?, 
-             ack_at = CURRENT_TIMESTAMP 
+             ack_at = datetime('now', '+7 hours') 
          WHERE id = ?;`,
         [reasonText, assignment.id]
       );
@@ -3667,7 +3667,7 @@ router.post('/missions/respond', async (req, res) => {
       // 2. รูปแบบ B: ถือว่าใช้สิทธิ์ในรอบนี้แล้ว -> อัปเดตคิวผู้ลาเป็น COMPLETED
       await dbRun(
         `UPDATE queue_members 
-         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ?;`,
         [personnel_id]
       );
@@ -3708,7 +3708,7 @@ router.post('/missions/respond', async (req, res) => {
         // อัปเดตคิวของพนักงานคนใหม่เป็น COMPLETED
         await dbRun(
           `UPDATE queue_members 
-           SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+           SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
            WHERE personnel_id = ?;`,
           [nextCandidate.id]
         );
@@ -3760,14 +3760,14 @@ router.post('/missions/respond', async (req, res) => {
 
       await dbRun(
         `UPDATE mission_assignments 
-         SET assignment_status = 'SUBSTITUTED', ack_status = 'DECLINED_BUSY', decline_reason = ?, ack_at = CURRENT_TIMESTAMP 
+         SET assignment_status = 'SUBSTITUTED', ack_status = 'DECLINED_BUSY', decline_reason = ?, ack_at = datetime('now', '+7 hours') 
          WHERE id = ?;`,
         [`ให้ ${substitutePerson.name} ทำแทน`, assignment.id]
       );
 
       await dbRun(
         `UPDATE queue_members 
-         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = CURRENT_TIMESTAMP 
+         SET status = 'COMPLETED', hold_reason = NULL, hold_timestamp = NULL, last_assigned_at = datetime('now', '+7 hours') 
          WHERE personnel_id = ?;`,
         [personnel_id]
       );
@@ -4398,7 +4398,7 @@ router.post('/admin/update-queue-order', async (req, res) => {
     }
 
     if (queue_status === 'HOLD') {
-      await dbRun(`UPDATE queue_members SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP WHERE personnel_id = ?;`, [hold_reason || 'ปรับโดย Admin', personnel_id]);
+      await dbRun(`UPDATE queue_members SET status = 'HOLD', hold_reason = ?, hold_timestamp = datetime('now', '+7 hours') WHERE personnel_id = ?;`, [hold_reason || 'ปรับโดย Admin', personnel_id]);
     } else if (queue_status === 'WAITING') {
       await dbRun(`UPDATE queue_members SET status = 'WAITING', hold_reason = NULL, hold_timestamp = NULL WHERE personnel_id = ?;`, [personnel_id]);
     }
