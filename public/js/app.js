@@ -277,11 +277,9 @@ function populate24HourTimeOptions(selectId, defaultTime = '09:00') {
 // -------------------------------------------------------------
 function initTheme() {
   const savedTheme = localStorage.getItem('fmo_theme');
-  if (!savedTheme || savedTheme === 'light') {
+  if (savedTheme === 'light') {
     document.body.classList.add('light-mode');
     updateThemeIcon(true);
-  } else {
-    updateThemeIcon(false);
   }
 }
 
@@ -534,9 +532,13 @@ async function loadRecentMissionsList() {
     `;
 
     recent.forEach(m => {
-      const statusBadge = (m.status === 'SUCCESS' || m.status === 'COMPLETED')
-        ? '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>' 
-        : '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
+      const statusUpper = String(m.status || '').toUpperCase();
+      let statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
+      if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
+        statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
+      } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
+        statusBadge = '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
+      }
 
 
       html += `
@@ -1869,7 +1871,7 @@ function renderMissionsTable(list) {
     if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
       statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
     } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
-      statusBadge = '<span class="badge" style="background:#0284c7; color:#ffffff; font-weight:700;"><i class="fa-solid fa-hourglass-half"></i> ON PROCESS</span>';
+      statusBadge = '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
     }
 
     const isRecent = isNewMission(m.created_at || m.start_date);

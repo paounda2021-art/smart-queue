@@ -1213,5 +1213,38 @@ html, body {
   overflow: hidden !important;
 }
 
+/* =============================================================
+   ANIMATED GIF-STYLE HOURGLASS & ON PROCESS BADGE
+   ============================================================= */
+@keyframes hourglassFlip {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(0deg); }
+  60% { transform: rotate(180deg); }
+  100% { transform: rotate(180deg); }
+}
+
+.animated-hourglass {
+  display: inline-block;
+  animation: hourglassFlip 2.2s infinite ease-in-out;
+  color: #38bdf8;
+  margin-right: 4px;
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(2, 132, 199, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
+}
+
+.badge-onprocess-pulse {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 20px !important;
+  padding: 4px 10px !important;
+  animation: pulseGlow 2s infinite !important;
+}
+
+
 
 
