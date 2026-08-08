@@ -1,4 +1,5 @@
 // Notification Service (LINE Flex Message Card & Email Notification Dispatcher)
+require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const { dbRun } = require('../db/database');
@@ -1341,7 +1342,7 @@ function createScheduleChangeFlexCardPayload(mission, person = null) {
 
   return {
     type: 'flex',
-    altText: `📢 [แจ้งเปลี่ยนแปลงกำหนดการ] ${mission.mission_title}`,
+    altText: `📢 [แจ้งกำหนดการ/เปลี่ยนแปลง] ${mission.mission_title}`,
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -1352,7 +1353,7 @@ function createScheduleChangeFlexCardPayload(mission, person = null) {
         paddingAll: '16px',
         contents: [
           { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#ffedd5', size: 'xxs', weight: 'bold' },
-          { type: 'text', text: '📢 แจ้งเปลี่ยนแปลงกำหนดการกิจกรรม', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
+          { type: 'text', text: '📢 แจ้งกำหนดการกิจกรรม / เปลี่ยนแปลง', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
         ]
       },
       body: {

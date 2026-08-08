@@ -3408,17 +3408,32 @@ async function checkAndUpdateMissionStatus(missionId) {
   if (!missionId) return;
 
   try {
-    // นับจำนวนคนที่ยังค้าง PENDING_ACK หรือยังไม่ได้ตอบรับ
+    const mission = await dbGet(`SELECT id, start_date, end_date, status FROM missions WHERE id = ?;`, [missionId]);
+    if (!mission) return;
+
+    const now = new Date();
+    const endDate = mission.end_date ? new Date(mission.end_date) : null;
+
+    // เงื่อนไข 2: เมื่อสิ้นสุดเวลากิจกรรม (endDate < now) ให้สถานะเป็น "SUCCESS"
+    if (endDate && !isNaN(endDate.getTime()) && endDate < now) {
+      if (mission.status !== 'SUCCESS' && mission.status !== 'COMPLETED') {
+        await dbRun(`UPDATE missions SET status = 'SUCCESS' WHERE id = ?;`, [missionId]);
+        console.log(`✅ อัปเดตสถานะกิจกรรม #${missionId} เป็น SUCCESS (สิ้นสุดเวลากิจกรรมแล้ว)`);
+      }
+      return;
+    }
+
+    // นับจำนวนคนที่ยังค้างตอบรับ (ack_status != 'ACKNOWLEDGED')
     const pendingRow = await dbGet(
       `SELECT COUNT(*) AS pending_count 
        FROM mission_assignments 
        WHERE mission_id = ? 
          AND assignment_status = 'JOINED' 
-         AND (ack_status IS NULL OR ack_status = 'PENDING_ACK' OR ack_status != 'ACKNOWLEDGED');`,
+         AND (ack_status IS NULL OR ack_status != 'ACKNOWLEDGED');`,
       [missionId]
     );
 
-    // นับจำนวนคนที่ปฏิบัติงานจริงทั้งหมดของกิจกรรมนี้ (สถานะ JOINED)
+    // นับจำนวนคนที่ต้องปฏิบัติงานทั้งหมดของกิจกรรมนี้ (สถานะ JOINED)
     const totalRow = await dbGet(
       `SELECT COUNT(*) AS total_count 
        FROM mission_assignments 
@@ -3430,12 +3445,16 @@ async function checkAndUpdateMissionStatus(missionId) {
     const pendingCount = pendingRow ? Number(pendingRow.pending_count) : 0;
     const totalCount = totalRow ? Number(totalRow.total_count) : 0;
 
-    // หากมีพนักงานปฏิบัติงานอยู่ และทุกคนตอบรับครบทั้งหมดแล้ว (pendingCount === 0)
+    // เงื่อนไข 1: เมื่อทุกคนรับทราบเรียบร้อยแล้ว (totalCount > 0 && pendingCount === 0) และยังไม่หมดเวลา ให้สถานะเป็น "ON_PROCESS"
     if (totalCount > 0 && pendingCount === 0) {
-      await dbRun(`UPDATE missions SET status = 'SUCCESS' WHERE id = ?;`, [missionId]);
-      console.log(`🎉 อัปเดตสถานะกิจกรรม #${missionId} เป็น SUCCESS (ทุกคนตอบรับ/ปฏิบัติงานครบถ้วนแล้ว ป้าย NEW จะซ่อนอัตโนมัติ)`);
+      if (mission.status !== 'ON_PROCESS' && mission.status !== 'ON PROCESS') {
+        await dbRun(`UPDATE missions SET status = 'ON_PROCESS' WHERE id = ?;`, [missionId]);
+        console.log(`⏳ อัปเดตสถานะกิจกรรม #${missionId} เป็น ON_PROCESS (ทุกคนกดรับทราบเรียบร้อยแล้ว)`);
+      }
     } else {
-      await dbRun(`UPDATE missions SET status = 'SCHEDULED' WHERE id = ?;`, [missionId]);
+      if (mission.status !== 'SCHEDULED') {
+        await dbRun(`UPDATE missions SET status = 'SCHEDULED' WHERE id = ?;`, [missionId]);
+      }
     }
   } catch (err) {
     console.error('Error checking mission status:', err);
@@ -3459,7 +3478,7 @@ router.get('/missions', async (req, res) => {
         (SELECT COUNT(*) FROM mission_assignments ma WHERE ma.mission_id = m.id AND ma.role_type = 'DIRECTOR' AND ma.assignment_status = 'JOINED') as directors_count,
         (SELECT COUNT(*) FROM mission_assignments ma WHERE ma.mission_id = m.id AND ma.role_type = 'STAFF' AND ma.assignment_status = 'JOINED') as staff_count
        FROM missions m
-       ORDER BY m.start_date DESC;`
+       ORDER BY m.start_date ASC;`
     );
 
     res.json({ success: true, missions });
@@ -4308,5 +4327,86 @@ router.post('/users/:id/unbind-line', async (req, res) => {
   }
 });
 
+
+// GET /api/users/:id/missions - ดึงรายการภารกิจทั้งหมดของพนักงานรายบุคคลสำหรับ Admin ใช้ปรับสถานะการรับทราบ
+router.get('/users/:id/missions', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const assignments = await dbAll(`
+      SELECT 
+        ma.id AS assignment_id,
+        ma.mission_id,
+        ma.is_leader,
+        ma.assignment_status,
+        ma.ack_status,
+        ma.ack_at,
+        ma.decline_reason,
+        m.mission_code,
+        m.mission_title,
+        m.location,
+        m.start_date,
+        m.end_date,
+        m.status AS mission_status
+      FROM mission_assignments ma
+      JOIN missions m ON ma.mission_id = m.id
+      WHERE ma.personnel_id = ?
+      ORDER BY m.start_date DESC;
+    `, [userId]);
+
+    res.json({ success: true, assignments });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/admin/update-assignment-ack - ปรับสถานะการรับทราบภารกิจโดย Admin
+router.post('/admin/update-assignment-ack', async (req, res) => {
+  try {
+    const { assignment_id, ack_status } = req.body;
+    if (!assignment_id || !ack_status) {
+      return res.status(400).json({ success: false, error: 'ข้อมูลไม่ครบถ้วน' });
+    }
+
+    const ackAt = ack_status === 'ACKNOWLEDGED' ? new Date().toISOString() : null;
+    await dbRun(`
+      UPDATE mission_assignments 
+      SET ack_status = ?, ack_at = ? 
+      WHERE id = ?;
+    `, [ack_status, ackAt, assignment_id]);
+
+    const assignment = await dbGet(`SELECT mission_id FROM mission_assignments WHERE id = ?;`, [assignment_id]);
+    if (assignment && assignment.mission_id) {
+      await checkAndUpdateMissionStatus(assignment.mission_id);
+    }
+
+    res.json({ success: true, message: 'ปรับสถานะการรับทราบเรียบร้อยแล้ว' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/admin/update-queue-order - ปรับเปลี่ยนลำดับคิวและสถานะคิวโดย Admin
+router.post('/admin/update-queue-order', async (req, res) => {
+  try {
+    const { personnel_id, queue_order, queue_status, hold_reason } = req.body;
+    if (!personnel_id) {
+      return res.status(400).json({ success: false, error: 'ระบุพนักงานไม่ถูกต้อง' });
+    }
+
+    if (queue_order) {
+      await dbRun(`UPDATE queue_members SET queue_order = ? WHERE personnel_id = ?;`, [parseInt(queue_order), personnel_id]);
+    }
+
+    if (queue_status === 'HOLD') {
+      await dbRun(`UPDATE queue_members SET status = 'HOLD', hold_reason = ?, hold_timestamp = CURRENT_TIMESTAMP WHERE personnel_id = ?;`, [hold_reason || 'ปรับโดย Admin', personnel_id]);
+    } else if (queue_status === 'WAITING') {
+      await dbRun(`UPDATE queue_members SET status = 'WAITING', hold_reason = NULL, hold_timestamp = NULL WHERE personnel_id = ?;`, [personnel_id]);
+    }
+
+    res.json({ success: true, message: 'อัปเดตข้อมูลคิวเรียบร้อยแล้ว' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;

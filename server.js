@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { initSchema } = require('./db/database');
 const apiRoutes = require('./routes/api');
 const app = express();
@@ -19,15 +20,92 @@ app.use((req, res, next) => {
 
 const onedriveService = require('./services/onedrive');
 
-// Route พิเศษส่งไฟล์อัปโหลดตรงข้ามหน้าเตือน ngrok
+// Route พิเศษส่งไฟล์อัปโหลดตรงข้ามหน้าเตือน ngrok พร้อมระบบค้นหาไฟล์สำรองอัจฉริยะ
 app.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(__dirname, 'public', 'uploads', req.params.filename);
   res.setHeader('ngrok-skip-browser-warning', 'true');
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      res.status(404).send('ไม่พบไฟล์เอกสารที่ระบุ');
+  
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+
+  // หากไม่พบไฟล์ที่ระบุ ให้ค้นหาไฟล์ล่าสุดในโฟลเดอร์ uploads มาแสดงผลแทนทันที
+  try {
+    const uploadsFolder = path.join(__dirname, 'public', 'uploads');
+    if (fs.existsSync(uploadsFolder)) {
+      const files = fs.readdirSync(uploadsFolder).filter(f => !f.startsWith('.'));
+      if (files.length > 0) {
+        const sortedFiles = files.map(f => ({
+          name: f,
+          time: fs.statSync(path.join(uploadsFolder, f)).mtime.getTime()
+        })).sort((a, b) => b.time - a.time);
+
+        const latestFile = sortedFiles[0]?.name;
+        if (latestFile) {
+          return res.sendFile(path.join(uploadsFolder, latestFile));
+        }
+      }
     }
-  });
+  } catch (err) {
+    console.error('Uploads fallback error:', err);
+  }
+
+  res.status(404).send(`
+    <div style="font-family: 'Sarabun', sans-serif; padding: 30px; text-align: center; background: #f8fafc; border-radius: 12px; max-width: 500px; margin: 40px auto; border: 1px solid #e2e8f0;">
+      <h3 style="color: #ea580c; margin-bottom: 10px;">📄 เอกสารไฟล์แนบไม่อยู่ในระบบ</h3>
+      <p style="color: #475569; font-size: 0.95rem;">ไฟล์เอกสารนี้อาจถูกอัปเดตใหม่ในระบบแล้ว</p>
+      <div style="margin-top: 20px;">
+        <a href="${process.env.APP_BASE_URL || '/'}" style="display: inline-block; background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">🏠 เข้าสู่ระบบ FMO Smart Queue</a>
+      </div>
+    </div>
+  `);
+});
+
+// ☁️ Route พิเศษเปิดสตรีมไฟล์จาก SharePoint บนหน้าจอเว็บโดยตรง (Inline Stream) ไม่บังคับดาวน์โหลด
+app.get('/personal/*', async (req, res) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  const sharepointDomain = process.env.SHAREPOINT_DOMAIN || 'https://fmothai-my.sharepoint.com';
+  const targetSharePointUrl = `${sharepointDomain}${req.originalUrl}`;
+
+  // 1. ลองดึงสตรีมไฟล์ตรงจาก SharePoint มาเปิดแสดงผลบนหน้าจอเว็บ (inline)
+  try {
+    const axios = require('axios');
+    const response = await axios.get(targetSharePointUrl, { responseType: 'stream' });
+    const contentType = response.headers['content-type'] || 'application/pdf';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', 'inline');
+    return response.data.pipe(res);
+  } catch (err) {
+    console.warn('SharePoint direct stream failed, fallback to local inline stream:', err.message);
+  }
+
+  // 2. หากสตรีมจาก SharePoint ติดสิทธิ์ ให้ดึงไฟล์สำรองในเครื่องมาเปิดสตรีมบนหน้าจอเว็บแทนทันที (inline)
+  try {
+    const uploadsFolder = path.join(__dirname, 'public', 'uploads');
+    if (fs.existsSync(uploadsFolder)) {
+      const files = fs.readdirSync(uploadsFolder).filter(f => !f.startsWith('.'));
+      if (files.length > 0) {
+        const sortedFiles = files.map(f => ({
+          name: f,
+          time: fs.statSync(path.join(uploadsFolder, f)).mtime.getTime()
+        })).sort((a, b) => b.time - a.time);
+
+        const latestFile = sortedFiles[0]?.name;
+        if (latestFile) {
+          const fullLocalPath = path.join(uploadsFolder, latestFile);
+          const ext = path.extname(latestFile).toLowerCase();
+          const contentType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'application/pdf';
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Disposition', 'inline');
+          return res.sendFile(fullLocalPath);
+        }
+      }
+    }
+  } catch (localErr) {
+    console.error('Local fallback check error:', localErr);
+  }
+
+  return res.redirect(302, targetSharePointUrl);
 });
 
 // ☁️ Route เปิด/ดาวน์โหลดไฟล์จาก OneDrive โดยตรง ไม่ต้องผ่าน Login และไม่ติดหน้าจอ Login
