@@ -1249,18 +1249,19 @@ html, body {
    ANIMATED GIF-STYLE CLOCK FOR SCHEDULED BADGE
    ============================================================= */
 @keyframes clockTicking {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(20deg); }
-  50% { transform: rotate(0deg); }
-  75% { transform: rotate(-20deg); }
-  100% { transform: rotate(0deg); }
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(35deg) scale(1.12); }
+  50% { transform: rotate(0deg) scale(1); }
+  75% { transform: rotate(-35deg) scale(1.12); }
+  100% { transform: rotate(0deg) scale(1); }
 }
 
 .animated-clock {
-  display: inline-block;
-  animation: clockTicking 1.6s infinite ease-in-out;
-  color: #0284c7;
-  margin-right: 4px;
+  display: inline-block !important;
+  animation: clockTicking 1.3s infinite ease-in-out !important;
+  color: #0284c7 !important;
+  margin-right: 5px !important;
+  transform-origin: center center !important;
 }
 
 .badge-scheduled-pulse {
