@@ -533,7 +533,7 @@ async function loadRecentMissionsList() {
 
     recent.forEach(m => {
       const statusUpper = String(m.status || '').toUpperCase();
-      let statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
+      let statusBadge = '<span class="badge badge-scheduled-pulse"><i class="fa-solid fa-clock animated-clock"></i> SCHEDULED</span>';
       if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
         statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
       } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
@@ -1867,7 +1867,7 @@ function renderMissionsTable(list) {
   let html = '';
   list.forEach(m => {
     const statusUpper = String(m.status || '').toUpperCase();
-    let statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> SCHEDULED</span>';
+    let statusBadge = '<span class="badge badge-scheduled-pulse"><i class="fa-solid fa-clock animated-clock"></i> SCHEDULED</span>';
     if (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED') {
       statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
     } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {

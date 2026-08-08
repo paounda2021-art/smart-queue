@@ -1245,6 +1245,34 @@ html, body {
   animation: pulseGlow 2s infinite !important;
 }
 
+/* =============================================================
+   ANIMATED GIF-STYLE CLOCK FOR SCHEDULED BADGE
+   ============================================================= */
+@keyframes clockTicking {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(20deg); }
+  50% { transform: rotate(0deg); }
+  75% { transform: rotate(-20deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animated-clock {
+  display: inline-block;
+  animation: clockTicking 1.6s infinite ease-in-out;
+  color: #0284c7;
+  margin-right: 4px;
+}
+
+.badge-scheduled-pulse {
+  background: rgba(2, 132, 199, 0.08) !important;
+  color: #0284c7 !important;
+  border: 1px solid rgba(2, 132, 199, 0.25) !important;
+  font-weight: 700 !important;
+  border-radius: 20px !important;
+  padding: 4px 10px !important;
+}
+
+
 
 
 
