@@ -3638,6 +3638,12 @@ router.post('/missions/respond', async (req, res) => {
          WHERE id = ?;`,
         [assignment.id]
       );
+      await dbRun(
+        `UPDATE queue_members 
+         SET last_assigned_at = datetime('now', '+7 hours') 
+         WHERE personnel_id = ?;`,
+        [personnel_id]
+      );
 
       await checkAndUpdateMissionStatus(mission_id);
 
@@ -4374,9 +4380,14 @@ router.post('/admin/update-assignment-ack', async (req, res) => {
       WHERE id = ?;
     `, [ack_status, ackAt, assignment_id]);
 
-    const assignment = await dbGet(`SELECT mission_id FROM mission_assignments WHERE id = ?;`, [assignment_id]);
-    if (assignment && assignment.mission_id) {
-      await checkAndUpdateMissionStatus(assignment.mission_id);
+    const assignment = await dbGet(`SELECT mission_id, personnel_id FROM mission_assignments WHERE id = ?;`, [assignment_id]);
+    if (assignment) {
+      if (ack_status === 'ACKNOWLEDGED' && assignment.personnel_id) {
+        await dbRun(`UPDATE queue_members SET last_assigned_at = datetime('now', '+7 hours') WHERE personnel_id = ?;`, [assignment.personnel_id]);
+      }
+      if (assignment.mission_id) {
+        await checkAndUpdateMissionStatus(assignment.mission_id);
+      }
     }
 
     res.json({ success: true, message: 'ปรับสถานะการรับทราบเรียบร้อยแล้ว' });
