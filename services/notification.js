@@ -1002,21 +1002,23 @@ async function sendUpcomingQueueNotice() {
 }
 
 /**
- * Dispatch Pre-Event Reminders Automatically (24h & 2h in advance) via mapped channel (LINE/Email)
+ * Dispatch Pre-Event Reminders Automatically via mapped channel (LINE/Email)
+ * Conditions requested by User:
+ * 1. ก่อนกิจกรรม 1 วัน (24 ชั่วโมงล่วงหน้า): '🔔 เตือนความจำล่วงหน้า (1 วัน)'
+ * 2. ก่อนเริ่มกิจกรรม 30 นาที อีกครั้ง: '🚨 เตือนความจำใกล้ถึงเวลา (อีก 30 นาที)'
  */
 async function dispatchPreEventReminders() {
   try {
     const { dbAll, dbRun } = require('../db/database');
 
-    // 💡 ป้องกันการ์ดส้มส่งตัดหน้าการ์ดฟ้า:
-    // ค้นหากิจกรรมที่จะจัดขึ้นล่วงหน้าใน 24 ชม. ที่ถูกสร้างมาแล้วอย่างน้อย 3 นาที
-    // และเคยส่งการ์ดแจ้งคำสั่งจัดสรรสีฟ้าสำเร็จเรียบร้อยแล้วเท่านั้น
+    // 💡 ป้องกันส่งซ้ำ และป้องกันยิงกิจกรรมที่เริ่มไปแล้ว:
+    // ดึงกิจกรรมที่กำลังจะจัดขึ้นในอนาคต (ระหว่างเวลาปัจจุบัน จนถึงอีก 30 ชั่วโมงข้างหน้า)
     const upcomingMissions = await dbAll(`
       SELECT m.*
       FROM missions m
-      WHERE m.start_date >= DATETIME('now')
-        AND m.start_date <= DATETIME('now', '+24 hours')
-        AND m.created_at <= DATETIME('now', '-3 minutes')
+      WHERE m.start_date > datetime('now', '+7 hours')
+        AND m.start_date <= datetime('now', '+7 hours', '+30 hours')
+        AND m.created_at <= datetime('now', '+7 hours', '-3 minutes')
         AND m.status IN ('SCHEDULED', 'SUCCESS')
         AND EXISTS (
           SELECT 1 FROM notification_logs nl 
@@ -1026,9 +1028,8 @@ async function dispatchPreEventReminders() {
     `);
 
     if (upcomingMissions.length === 0) {
-      return { success: true, count: 0, message: 'ไม่พบกิจกรรมที่จะจัดขึ้นในอีก 24 ชั่วโมงข้างหน้า' };
+      return { success: true, count: 0, message: 'ไม่พบกิจกรรมที่จะจัดขึ้นในอีก 30 ชั่วโมงข้างหน้า' };
     }
-
 
     const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     let totalReminded = 0;
@@ -1044,15 +1045,44 @@ async function dispatchPreEventReminders() {
 
       const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
 
+      // คำนวณส่วนต่างเวลาระหว่างปัจจุบันกับเวลาเริ่มงานเป็นนาที (Thailand Local Time)
       const nowMs = new Date().getTime();
-      const startMs = new Date(mission.start_date).getTime();
-      const diffHours = (startMs - nowMs) / (1000 * 60 * 60);
+      let startMs = new Date(mission.start_date).getTime();
+      if (typeof mission.start_date === 'string' && !mission.start_date.includes('Z') && !mission.start_date.includes('+')) {
+        startMs = new Date(mission.start_date.replace(' ', 'T') + '+07:00').getTime();
+      }
 
-      const isUrgent2h = (diffHours <= 2.5 && diffHours >= 0);
-      const reminderTag = isUrgent2h ? '🔔 เตือนความจำใกล้ถึงเวลา (อีก 2 ชม.)' : '🔔 เตือนความจำล่วงหน้า (1 วัน)';
-      const headerBgColor = isUrgent2h ? '#d97706' : '#eab308'; // โทนสีเหลืองละมุนสบายตา
-      const headerSubColor = isUrgent2h ? '#fef3c7' : '#fefce8';
-      const textHighlightColor = isUrgent2h ? '#b45309' : '#ca8a04';
+      const diffMinutes = (startMs - nowMs) / (1000 * 60);
+
+      // กิจกรรมที่จบ/เริ่มไปแล้ว ไม่ส่งเตือนย้อนหลัง
+      if (diffMinutes < 0) continue;
+
+      let reminderTag = null;
+      let isUrgent30m = false;
+      let headerBgColor = '#eab308';
+      let headerSubColor = '#fefce8';
+      let textHighlightColor = '#ca8a04';
+      let footerNoticeText = '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที';
+
+      if (diffMinutes >= 0 && diffMinutes <= 45) {
+        // เงื่อนไขที่ 2: เตือนล่วงหน้า 30 นาที
+        isUrgent30m = true;
+        reminderTag = '🚨 เตือนความจำใกล้ถึงเวลา (อีก 30 นาที)';
+        headerBgColor = '#d97706';
+        headerSubColor = '#fef3c7';
+        textHighlightColor = '#b45309';
+        footerNoticeText = '🚨 อีกประมาณ 30 นาทีจะถึงเวลาเริ่มปฏิบัติงาน! กรุณาเตรียมพร้อมและเดินทางถึงสถานที่ปฏิบัติงานทันทีค่ะ';
+      } else if (diffMinutes >= 12 * 60 && diffMinutes <= 28 * 60) {
+        // เงื่อนไขที่ 1: เตือนล่วงหน้า 1 วัน (24 ชม.)
+        reminderTag = '🔔 เตือนความจำล่วงหน้า (1 วัน)';
+        headerBgColor = '#eab308';
+        headerSubColor = '#fefce8';
+        textHighlightColor = '#ca8a04';
+        footerNoticeText = '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที';
+      }
+
+      // หากไม่อยู่ในเงื่อนไขการเตือน 1 วัน หรือ 30 นาที ให้ข้ามไป
+      if (!reminderTag) continue;
 
       for (const person of assigned) {
         const alreadySent = await dbAll(`
@@ -1102,14 +1132,14 @@ async function dispatchPreEventReminders() {
                   {
                     type: 'box',
                     layout: 'vertical',
-                    backgroundColor: '#fefce8',
-                    borderColor: '#fef08a',
+                    backgroundColor: isUrgent30m ? '#fff7ed' : '#fefce8',
+                    borderColor: isUrgent30m ? '#ffedd5' : '#fef08a',
                     borderWidth: '1px',
                     paddingAll: '10px',
                     cornerRadius: '8px',
                     margin: 'md',
                     contents: [
-                      { type: 'text', text: isUrgent2h ? '🚨 กิจกรรมกำลังจะเริ่มขึ้นในอีก 2 ชั่วโมงข้างหน้า! กรุณาเตรียมพร้อมปฏิบัติงานทันที' : '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที', size: 'xxs', color: '#854d0e', wrap: true }
+                      { type: 'text', text: footerNoticeText, size: 'xxs', color: isUrgent30m ? '#9a3412' : '#854d0e', wrap: true }
                     ]
                   }
                 ]
@@ -1152,17 +1182,17 @@ async function dispatchPreEventReminders() {
           const targetEmail = person.email || `${String(person.emp_code).toLowerCase()}@fishmarket.co.th`;
           const emailSubject = `${reminderTag}: ${mission.mission_title}`;
           const emailBody = `
-            <div style="font-family: Sarabun, sans-serif; padding: 20px; border: 1px solid ${isUrgent2h ? '#dcdc26' : '#d9cb06'}; border-radius: 10px; max-width: 600px;">
-              <h2 style="color: ${isUrgent2h ? '#dcdc26' : '#d9cb06'};">${reminderTag}</h2>
+            <div style="font-family: Sarabun, sans-serif; padding: 20px; border: 1px solid ${isUrgent30m ? '#d97706' : '#eab308'}; border-radius: 10px; max-width: 600px;">
+              <h2 style="color: ${isUrgent30m ? '#d97706' : '#eab308'};">${reminderTag}</h2>
               <p>เรียน <strong>${person.name}</strong>,</p>
               <p>ระบบอัตโนมัติขอแจ้งเตือนความจำปฏิบัติหน้าที่ในกิจกรรม <strong>${mission.mission_title}</strong></p>
-              <div style="background: ${isUrgent2h ? '#fff5f5' : '#fffbeb'}; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid ${isUrgent2h ? '#fca5a5' : '#fde68a'};">
+              <div style="background: ${isUrgent30m ? '#fff7ed' : '#fffbeb'}; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid ${isUrgent30m ? '#ffedd5' : '#fde68a'};">
                 <p style="margin: 4px 0;"><strong>📍 สถานที่:</strong> ${mission.location || '-'}</p>
                 <p style="margin: 4px 0;"><strong>⏰ เวลา (24 ชม.):</strong> ${timeStr}</p>
                 <p style="margin: 4px 0;"><strong>👔 การแต่งกาย:</strong> ${mission.dress_code || 'ชุดปฏิบัติงาน อสป.'}</p>
               </div>
-              <p style="color: ${isUrgent2h ? '#991b1b' : '#b45309'}; font-weight: bold;">
-                ${isUrgent2h ? '🚨 งานกำลังจะเริ่มขึ้นในอีก 1-2 ชั่วโมง! กรุณาเตรียมพร้อมปฏิบัติงานทันที' : '⏱️ กรุณาเดินทางมาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที ขอบคุณค่ะ'}
+              <p style="color: ${isUrgent30m ? '#9a3412' : '#b45309'}; font-weight: bold;">
+                ${footerNoticeText}
               </p>
             </div>
           `;

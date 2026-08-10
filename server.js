@@ -230,9 +230,9 @@ initSchema().then(() => {
     console.log(`🌐 Open Web Browser at: http://localhost:${PORT}`);
     console.log(`====================================================`);
 
-    // 🔔 Start Automated Pre-Event Reminder Background Task (Every 15 mins)
+    // 🔔 Start Automated Pre-Event Reminder Background Task (Every 5 mins)
     const { dispatchPreEventReminders } = require('./services/notification');
-    setInterval(async () => {
+    const runReminderCheck = async () => {
       try {
         const result = await dispatchPreEventReminders();
         if (result && result.count > 0) {
@@ -241,7 +241,9 @@ initSchema().then(() => {
       } catch (err) {
         console.error('[AUTOMATED CRON] Error in auto pre-event reminder:', err.message);
       }
-    }, 15 * 60 * 1000);
+    };
+    runReminderCheck();
+    setInterval(runReminderCheck, 5 * 60 * 1000);
   });
 }).catch(err => {
   console.error('❌ Failed to initialize database:', err);
