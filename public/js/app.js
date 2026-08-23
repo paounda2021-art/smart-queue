@@ -671,22 +671,20 @@ async function loadQueueView(roleType) {
         const queueNum = regularIndex++;
         orderCell = `<strong style="color:var(--primary);">#${queueNum}</strong>`;
 
-
-
         if (m.status === 'HOLD') {
-          statusBadge = `<span class="badge badge-hold"><i class="fa-solid fa-pause"></i> HOLD (ค้างสิทธิ์)</span><br><small style="color:var(--warning);">${escapeHtml(m.hold_reason || '')}</small>`;
-          actions = `<button class="btn btn-primary btn-sm" onclick="unholdPerson(${m.personnel_id}, this)"><i class="fa-solid fa-play"></i> คืนสิทธิ์ปกติ</button>`;
+          statusBadge = `<span class="badge badge-hold" style="background:#f59e0b; color:#ffffff; font-weight:700;"><i class="fa-solid fa-pause"></i> HOLD (ค้างสิทธิ์)</span><br><small style="color:#d97706; font-weight:600;">${escapeHtml(m.hold_reason || '')}</small>`;
+          actions = `<button class="btn btn-primary btn-sm" onclick="unholdPerson(${m.personnel_id}, this)" data-person-id="${m.personnel_id}" data-person-name="${escapeHtml(m.name)}" style="background:#0284c7; border-color:#0284c7; font-weight:bold;"><i class="fa-solid fa-rotate-left"></i> 🔄 คืนสิทธิ์ปกติ</button>`;
         } else if (m.status === 'COMPLETED') {
           statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-check"></i> COMPLETED</span>';
           actions = `<span style="color:var(--text-muted); font-size:0.8rem;">ปฏิบัติกิจกรรมในรอบนี้แล้ว</span>`;
         } else {
-          statusBadge = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> WAITING (รอคิว)</span>';
-          actions = `<button class="btn btn-warning btn-sm" onclick="openSkipModal(${m.personnel_id}, '${escapeHtml(m.name)}')"><i class="fa-solid fa-pause"></i> ข้ามคิว (Hold)</button>`;
+          statusBadge = '<span class="badge badge-waiting" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:600;"><i class="fa-solid fa-clock"></i> WAITING (รอคิว)</span>';
+          actions = `<button class="btn btn-warning btn-sm" onclick="openSkipModal(${m.personnel_id}, '${escapeHtml(m.name)}')" data-person-id="${m.personnel_id}" data-person-name="${escapeHtml(m.name)}" style="background:#f59e0b; border-color:#f59e0b; color:#ffffff; font-weight:bold;"><i class="fa-solid fa-pause"></i> ⏩ ข้ามคิว (Hold)</button>`;
         }
       }
 
       html += `
-        <tr ${isExecutiveReserve ? 'style="background:rgba(168,85,247,0.03);"' : ''}>
+        <tr data-personnel-id="${m.personnel_id}" ${isExecutiveReserve ? 'style="background:rgba(168,85,247,0.03);"' : ''}>
           <td>${orderCell}</td>
           <td><code>${m.emp_code}</code></td>
           <td><strong style="color:var(--text-heading);">${escapeHtml(m.name)}</strong></td>
@@ -699,9 +697,6 @@ async function loadQueueView(roleType) {
       `;
     });
 
-
-
-
     tbody.innerHTML = html;
   } catch (err) {
     console.error('Error loading queue:', err);
@@ -710,7 +705,7 @@ async function loadQueueView(roleType) {
 }
 
 // -------------------------------------------------------------
-// SKIP & HOLD ACTIONS
+// SKIP & HOLD ACTIONS (INSTANT 0MS TOGGLE)
 // -------------------------------------------------------------
 function openSkipModal(personnelId, name) {
   document.getElementById('modal-skip-person-id').value = personnelId;
@@ -722,6 +717,7 @@ function openSkipModal(personnelId, name) {
 async function confirmSkipHold() {
   const pId = document.getElementById('modal-skip-person-id').value;
   const reason = document.getElementById('modal-skip-reason').value.trim();
+  const personName = document.getElementById('modal-skip-person-name').innerText || '';
   const confirmBtn = document.querySelector('#modal-skip .modal-footer .btn-warning');
 
   if (!reason) {
@@ -729,10 +725,22 @@ async function confirmSkipHold() {
     return;
   }
 
-  if (confirmBtn) {
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้ามคิว...';
+  // ⚡ INSTANT 0MS OPTIMISTIC TOGGLE: ปิด Modal และสลับปุ่มบนตารางทันทีทันใด
+  closeModal('modal-skip');
+
+  const targetRow = document.querySelector(`tr[data-personnel-id="${pId}"]`);
+  if (targetRow) {
+    const statusCell = targetRow.cells[4];
+    const actionCell = targetRow.cells[7];
+    if (statusCell) {
+      statusCell.innerHTML = `<span class="badge badge-hold" style="background:#f59e0b; color:#ffffff; font-weight:700;"><i class="fa-solid fa-pause"></i> HOLD (ค้างสิทธิ์)</span><br><small style="color:#d97706; font-weight:600;">${escapeHtml(reason)}</small>`;
+    }
+    if (actionCell) {
+      actionCell.innerHTML = `<button class="btn btn-primary btn-sm" onclick="unholdPerson(${pId}, this)" data-person-id="${pId}" data-person-name="${escapeHtml(personName)}" style="background:#0284c7; border-color:#0284c7; font-weight:bold;"><i class="fa-solid fa-rotate-left"></i> 🔄 คืนสิทธิ์ปกติ</button>`;
+    }
   }
+
+  showToast('⏩ บันทึกข้ามคิว (Hold) ค้างสิทธิ์ในรอบนี้เรียบร้อยแล้ว', 'warning');
 
   try {
     const res = await fetch('/api/queue/skip', {
@@ -743,49 +751,39 @@ async function confirmSkipHold() {
     const result = await res.json();
 
     if (result.success) {
-      closeModal('modal-skip');
-      showToast('⏩ บันทึกข้ามคิว (Hold) ค้างสิทธิ์ในรอบนี้เรียบร้อยแล้ว', 'warning');
-      await loadQueueView(currentQueueRole || 'DIRECTOR');
       if (typeof loadDashboardStats === 'function') loadDashboardStats();
       if (typeof previewCandidates === 'function') previewCandidates();
     } else {
       showToast(`Error: ${result.error}`, 'danger');
+      await loadQueueView(currentQueueRole || 'DIRECTOR');
     }
   } catch (err) {
     console.error('Skip error:', err);
     showToast('เกิดข้อผิดพลาดในการข้ามคิว', 'danger');
-  } finally {
-    if (confirmBtn) {
-      confirmBtn.disabled = false;
-      confirmBtn.innerHTML = '<i class="fa-solid fa-pause"></i> ยืนยันการค้างสิทธิ์ (Hold)';
-    }
+    await loadQueueView(currentQueueRole || 'DIRECTOR');
   }
 }
 
 async function unholdPerson(personnelId, btnElem) {
-  if (btnElem && (btnElem.disabled || btnElem.dataset.submitting === 'true')) {
-    return;
-  }
-
   const pId = Number.parseInt(personnelId, 10);
-  const origHtml = btnElem ? btnElem.innerHTML : '';
+  const targetRow = (btnElem && btnElem.closest) ? btnElem.closest('tr') : document.querySelector(`tr[data-personnel-id="${pId}"]`);
+  const personName = btnElem ? (btnElem.dataset.personName || '') : '';
 
-  if (btnElem) {
-    btnElem.disabled = true;
-    btnElem.dataset.submitting = 'true';
-    btnElem.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังคืนสิทธิ์...';
+  // ⚡ INSTANT 0MS OPTIMISTIC TOGGLE: สลับสถานะและปุ่มบนแถวทันทีทันใดใน 0 มิลลิวินาที
+  if (targetRow) {
+    const statusCell = targetRow.cells[4];
+    const actionCell = targetRow.cells[7];
+    if (statusCell) {
+      statusCell.innerHTML = '<span class="badge badge-waiting" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:600;"><i class="fa-solid fa-clock"></i> WAITING (รอคิว)</span>';
+    }
+    if (actionCell) {
+      actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="openSkipModal(${pId}, '${escapeHtml(personName)}')" data-person-id="${pId}" data-person-name="${escapeHtml(personName)}" style="background:#f59e0b; border-color:#f59e0b; color:#ffffff; font-weight:bold;"><i class="fa-solid fa-pause"></i> ⏩ ข้ามคิว (Hold)</button>`;
+    }
   }
+
+  showToast('🎉 คืนสิทธิ์เข้าคิวปกติเรียบร้อยแล้ว (สถานะเปลี่ยนเป็น WAITING)', 'success');
 
   try {
-    // ⚡ Instant Optimistic UI Update: เปลี่ยนสถานะของแถวในตารางทันที
-    let targetRow = btnElem && btnElem.closest ? btnElem.closest('tr') : null;
-    if (targetRow) {
-      const statusCell = targetRow.cells[4];
-      if (statusCell) {
-        statusCell.innerHTML = '<span class="badge badge-waiting"><i class="fa-solid fa-spinner fa-spin"></i> กำลังคืนสิทธิ์...</span>';
-      }
-    }
-
     const res = await fetch('/api/queue/unhold', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -794,30 +792,21 @@ async function unholdPerson(personnelId, btnElem) {
     const result = await res.json();
 
     if (result.success) {
-      showToast('🎉 คืนสิทธิ์เข้าคิวปกติเรียบร้อยแล้ว (สถานะเปลี่ยนเป็น WAITING)', 'success');
-      await loadQueueView(currentQueueRole || 'DIRECTOR');
       if (typeof loadDashboardStats === 'function') loadDashboardStats();
       if (typeof previewCandidates === 'function') previewCandidates();
     } else {
       showToast(`Error: ${result.error}`, 'danger');
-      if (btnElem) {
-        btnElem.disabled = false;
-        btnElem.dataset.submitting = 'false';
-        btnElem.innerHTML = origHtml;
-      }
       await loadQueueView(currentQueueRole || 'DIRECTOR');
     }
   } catch (err) {
     console.error('Unhold error:', err);
     showToast('เกิดข้อผิดพลาดในการคืนสิทธิ์', 'danger');
-    if (btnElem) {
-      btnElem.disabled = false;
-      btnElem.dataset.submitting = 'false';
-      btnElem.innerHTML = origHtml;
-    }
     await loadQueueView(currentQueueRole || 'DIRECTOR');
   }
 }
+
+window.openSkipModal = openSkipModal;
+window.confirmSkipHold = confirmSkipHold;
 window.unholdPerson = unholdPerson;
 
 // -------------------------------------------------------------
