@@ -538,6 +538,8 @@ async function loadRecentMissionsList() {
         statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
       } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
         statusBadge = '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
+      } else if (statusUpper === 'CANCELLED') {
+        statusBadge = '<span class="badge badge-hold" style="background:#ef4444; color:white;"><i class="fa-solid fa-ban"></i> CANCELLED</span>';
       }
 
 
@@ -720,10 +722,16 @@ function openSkipModal(personnelId, name) {
 async function confirmSkipHold() {
   const pId = document.getElementById('modal-skip-person-id').value;
   const reason = document.getElementById('modal-skip-reason').value.trim();
+  const confirmBtn = document.querySelector('#modal-skip .modal-footer .btn-warning');
 
   if (!reason) {
     showToast('กรุณาระบุเหตุผลการข้ามคิว', 'warning');
     return;
+  }
+
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้ามคิว...';
   }
 
   try {
@@ -736,39 +744,45 @@ async function confirmSkipHold() {
 
     if (result.success) {
       closeModal('modal-skip');
-      loadQueueView(currentQueueRole);
-      loadDashboardStats();
-      previewCandidates();
-      showToast('บันทึกการข้ามคิว (Hold) เรียบร้อยแล้ว', 'warning');
+      showToast('⏩ บันทึกข้ามคิว (Hold) ค้างสิทธิ์ในรอบนี้เรียบร้อยแล้ว', 'warning');
+      await loadQueueView(currentQueueRole || 'DIRECTOR');
+      if (typeof loadDashboardStats === 'function') loadDashboardStats();
+      if (typeof previewCandidates === 'function') previewCandidates();
     } else {
       showToast(`Error: ${result.error}`, 'danger');
     }
   } catch (err) {
     console.error('Skip error:', err);
+    showToast('เกิดข้อผิดพลาดในการข้ามคิว', 'danger');
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="fa-solid fa-pause"></i> ยืนยันการค้างสิทธิ์ (Hold)';
+    }
   }
 }
 
 async function unholdPerson(personnelId, btnElem) {
+  if (btnElem && (btnElem.disabled || btnElem.dataset.submitting === 'true')) {
+    return;
+  }
+
+  const pId = Number.parseInt(personnelId, 10);
+  const origHtml = btnElem ? btnElem.innerHTML : '';
+
+  if (btnElem) {
+    btnElem.disabled = true;
+    btnElem.dataset.submitting = 'true';
+    btnElem.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังคืนสิทธิ์...';
+  }
+
   try {
-    const pId = Number.parseInt(personnelId, 10);
-
-    // ⚡ Instant Optimistic UI Update: ค้นหา row แล้วเปลี่ยนเฉพาะเซลล์สถานะและเซลล์ปุ่มทันที
-    let targetRow = null;
-    if (btnElem && btnElem.closest) {
-      targetRow = btnElem.closest('tr');
-    }
-
+    // ⚡ Instant Optimistic UI Update: เปลี่ยนสถานะของแถวในตารางทันที
+    let targetRow = btnElem && btnElem.closest ? btnElem.closest('tr') : null;
     if (targetRow) {
-      // เซลล์สถานะคืนค่า WAITING ทันที
-      const statusCell = targetRow.querySelector('.badge-hold')?.closest('td');
-      // เซลล์ปุ่ม action (คลาส no-print)
-      const actionCell = targetRow.querySelector('td.no-print');
-
+      const statusCell = targetRow.cells[4];
       if (statusCell) {
-        statusCell.innerHTML = '<span class="badge badge-waiting"><i class="fa-solid fa-clock"></i> WAITING (รอคิว)</span>';
-      }
-      if (actionCell) {
-        actionCell.innerHTML = `<button class="btn btn-warning btn-sm" onclick="openSkipModal(${pId}, '')"><i class="fa-solid fa-pause"></i> ข้ามคิว (Hold)</button>`;
+        statusCell.innerHTML = '<span class="badge badge-waiting"><i class="fa-solid fa-spinner fa-spin"></i> กำลังคืนสิทธิ์...</span>';
       }
     }
 
@@ -780,24 +794,28 @@ async function unholdPerson(personnelId, btnElem) {
     const result = await res.json();
 
     if (result.success) {
-      showToast('🎉 คืนสิทธิ์ให้บุคลากรกลับสู่สถานะรอคิวปกติเรียบร้อยแล้ว', 'success');
-      // โหลดตารางใหม่ 1 ครั้งในพื้นหลัง (ไม่กะพริบ)
-      setTimeout(async () => {
-        if (typeof loadQueueView === 'function') {
-          await loadQueueView(currentQueueRole || 'DIRECTOR');
-        }
-        if (typeof loadDashboardStats === 'function') loadDashboardStats();
-        if (typeof previewCandidates === 'function') previewCandidates();
-      }, 500);
+      showToast('🎉 คืนสิทธิ์เข้าคิวปกติเรียบร้อยแล้ว (สถานะเปลี่ยนเป็น WAITING)', 'success');
+      await loadQueueView(currentQueueRole || 'DIRECTOR');
+      if (typeof loadDashboardStats === 'function') loadDashboardStats();
+      if (typeof previewCandidates === 'function') previewCandidates();
     } else {
       showToast(`Error: ${result.error}`, 'danger');
-      // กรณีผิดพลาดให้โหลดใหม่ทันทีเพื่อย้อน UI
-      if (typeof loadQueueView === 'function') loadQueueView(currentQueueRole);
+      if (btnElem) {
+        btnElem.disabled = false;
+        btnElem.dataset.submitting = 'false';
+        btnElem.innerHTML = origHtml;
+      }
+      await loadQueueView(currentQueueRole || 'DIRECTOR');
     }
   } catch (err) {
     console.error('Unhold error:', err);
     showToast('เกิดข้อผิดพลาดในการคืนสิทธิ์', 'danger');
-    if (typeof loadQueueView === 'function') loadQueueView(currentQueueRole);
+    if (btnElem) {
+      btnElem.disabled = false;
+      btnElem.dataset.submitting = 'false';
+      btnElem.innerHTML = origHtml;
+    }
+    await loadQueueView(currentQueueRole || 'DIRECTOR');
   }
 }
 window.unholdPerson = unholdPerson;
@@ -1872,35 +1890,40 @@ function renderMissionsTable(list) {
       statusBadge = '<span class="badge badge-completed"><i class="fa-solid fa-circle-check"></i> SUCCESS</span>';
     } else if (statusUpper === 'ON_PROCESS' || statusUpper === 'ON PROCESS') {
       statusBadge = '<span class="badge badge-onprocess-pulse"><i class="fa-solid fa-hourglass-half animated-hourglass"></i> ON PROCESS</span>';
+    } else if (statusUpper === 'CANCELLED') {
+      statusBadge = '<span class="badge badge-hold" style="background:#ef4444; color:white;"><i class="fa-solid fa-ban"></i> CANCELLED</span>';
     }
 
     const isRecent = isNewMission(m.created_at || m.start_date);
-    const newBadge = isRecent ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
-
+    const newBadge = (isRecent && statusUpper !== 'CANCELLED') ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
 
     const creatorName = m.created_by || 'ผู้ดูแลระบบ';
     const createdAtFormatted = formatDate(m.created_at || m.start_date);
 
+    let actionButtons = `
+      <button class="btn btn-secondary btn-sm" onclick="openMissionDetailModal(${m.id})" style="padding: 4px 8px; font-size: 0.78rem; white-space: nowrap;">
+        <i class="fa-solid fa-eye"></i> รายชื่อ & เปลี่ยนตัว
+      </button>
+    `;
+
     html += `
       <tr style="cursor: pointer;" onclick="openMissionDetailModal(${m.id})" title="คลิกเพื่อดูรายละเอียดและเปลี่ยนตัว">
-        <td><code>${m.mission_code || 'ACT-' + m.id}</code></td>
-        <td>
-          <strong style="color:var(--text-heading); font-size: 0.95rem;">${escapeHtml(m.mission_title)}</strong>${newBadge}
-          <div style="font-size: 0.78rem; color: #64748b; margin-top: 3px; font-weight: 500;">
+        <td style="white-space: nowrap; text-align: center;"><code>${m.mission_code || 'ACT-' + m.id}</code></td>
+        <td style="min-width: 360px; max-width: 550px;">
+          <strong style="color:var(--text-heading); font-size: 0.95rem; line-height: 1.45; display: inline-block;">${escapeHtml(m.mission_title)}</strong>${newBadge}
+          <div style="font-size: 0.78rem; color: #64748b; margin-top: 4px; font-weight: 500;">
             <i class="fa-solid fa-user-pen" style="color:#0284c7;"></i> ${escapeHtml(creatorName)} | 
             <i class="fa-solid fa-clock" style="color:#0284c7;"></i> ${createdAtFormatted}
           </div>
         </td>
         <td>${escapeHtml(m.location || '-')}</td>
         <td>${escapeHtml(m.dress_code || 'ชุดปฏิบัติงาน อสป.')}</td>
-        <td>${formatDate(m.start_date)}</td>
-        <td><span class="badge badge-director">${m.directors_count} ท่าน</span></td>
-        <td><span class="badge badge-staff">${m.staff_count} ท่าน</span></td>
-        <td>${statusBadge}</td>
-        <td onclick="event.stopPropagation()">
-          <button class="btn btn-secondary btn-sm" onclick="openMissionDetailModal(${m.id})">
-            <i class="fa-solid fa-eye"></i> รายชื่อ & เปลี่ยนตัว
-          </button>
+        <td style="white-space: nowrap;">${formatDate(m.start_date)}</td>
+        <td style="text-align: center;"><span class="badge badge-director" style="padding: 3px 6px; font-size: 0.76rem;">${m.directors_count}</span></td>
+        <td style="text-align: center;"><span class="badge badge-staff" style="padding: 3px 6px; font-size: 0.76rem;">${m.staff_count}</span></td>
+        <td style="text-align: center; white-space: nowrap;">${statusBadge}</td>
+        <td onclick="event.stopPropagation()" style="text-align: center;">
+          ${actionButtons}
         </td>
       </tr>
     `;
@@ -1908,6 +1931,147 @@ function renderMissionsTable(list) {
   });
 
   tbody.innerHTML = html;
+}
+
+// -------------------------------------------------------------
+// CANCEL MISSION & CANCELLATION NOTICE CARDS
+// -------------------------------------------------------------
+
+function openCancelMissionModal(missionId, title) {
+  let mTitle = title;
+  if (!mTitle && Array.isArray(allMissionsCache)) {
+    const found = allMissionsCache.find(m => Number(m.id) === Number(missionId));
+    if (found) mTitle = found.mission_title;
+  }
+  document.getElementById('cancel-mission-id').value = missionId;
+  document.getElementById('cancel-mission-title-text').innerText = mTitle || 'กิจกรรมที่เลือก';
+  document.getElementById('cancel-mission-reason').value = '';
+  openModal('modal-cancel-mission');
+}
+
+async function confirmCancelMission() {
+  const missionId = document.getElementById('cancel-mission-id').value;
+  const reason = document.getElementById('cancel-mission-reason').value.trim();
+
+  if (!reason) {
+    showToast('กรุณาระบุเหตุผลการยกเลิกกิจกรรม', 'warning');
+    return;
+  }
+
+  try {
+    let currentUserName = 'ผู้ดูแลระบบ';
+    const sessionUser = sessionStorage.getItem('fmo_user');
+    if (sessionUser) {
+      try {
+        const u = JSON.parse(sessionUser);
+        currentUserName = u.name || u.label || u.username || 'ผู้ดูแลระบบ';
+      } catch(e){}
+    }
+
+    const res = await fetch(`/api/missions/${missionId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cancel_reason: reason,
+        cancelled_by: currentUserName
+      })
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      closeModal('modal-cancel-mission');
+      showToast(`🎉 ${result.message}`, 'success');
+
+      // รีเฟรชข้อมูลทุกส่วน
+      refreshAllSystemData();
+      loadCancelledNoticeCards();
+    } else {
+      showToast(`Error: ${result.error}`, 'danger');
+    }
+  } catch (err) {
+    console.error('Error cancelling mission:', err);
+    showToast('เกิดข้อผิดพลาดในการยกเลิกกิจกรรม', 'danger');
+  }
+}
+
+async function loadCancelledNoticeCards() {
+  const container = document.getElementById('cancellation-notices-container');
+  const cardsList = document.getElementById('cancelled-notice-cards-list');
+  const countBadge = document.getElementById('cancelled-notice-count');
+
+  if (!container || !cardsList) return;
+
+  try {
+    const res = await fetch('/api/missions/cancelled-notices');
+    const result = await res.json();
+
+    if (!result.success || !result.data || result.data.length === 0) {
+      container.style.display = 'none';
+      cardsList.innerHTML = '';
+      return;
+    }
+
+    container.style.display = 'block';
+    if (countBadge) countBadge.innerText = `${result.data.length} กิจกรรม`;
+
+    let html = '';
+    result.data.forEach(m => {
+      const assigned = m.assigned_members || [];
+      let membersHtml = '';
+      if (assigned.length > 0) {
+        membersHtml = assigned.map(a => `
+          <span style="display:inline-block; background:#fff; border:1px solid #fecdd3; padding:2px 8px; border-radius:6px; font-size:0.75rem; color:#9f1239; font-weight:600; margin:2px;">
+            ${escapeHtml(a.name)} (${a.emp_code})
+          </span>
+        `).join('');
+      } else {
+        membersHtml = '<span style="color:#94a3b8; font-size:0.78rem;">ไม่มีผู้ได้รับจัดสรร</span>';
+      }
+
+      html += `
+        <div style="background: #ffffff; border-radius: 12px; border: 1.5px solid #fca5a5; padding: 1.1rem; box-shadow: 0 4px 12px rgba(239,68,68,0.08); transition: transform 0.2s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <span class="badge" style="background: #ef4444; color: #ffffff; font-weight: bold; font-size: 0.78rem;">
+              <i class="fa-solid fa-ban"></i> ยกเลิกกิจกรรม
+            </span>
+            <small style="color: #64748b; font-weight: 600; font-size: 0.78rem;">
+              <i class="fa-solid fa-clock" style="color: #ef4444;"></i> ${m.cancelled_at ? formatDate(m.cancelled_at) : '-'}
+            </small>
+          </div>
+
+          <h4 style="color: #991b1b; font-size: 1.05rem; font-weight: 700; margin: 6px 0 4px 0; line-height: 1.35;">
+            ${escapeHtml(m.mission_title)} <code style="font-size: 0.8rem; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px;">${m.mission_code || 'ACT-' + m.id}</code>
+          </h4>
+
+          <p style="font-size: 0.83rem; color: #475569; margin-bottom: 8px;">
+            <i class="fa-solid fa-location-dot" style="color: #ef4444;"></i> ${escapeHtml(m.location || '-')} | <i class="fa-solid fa-calendar-day" style="color: #ef4444;"></i> ${formatDate(m.start_date)}
+          </p>
+
+          <div style="background: #fef2f2; border-left: 3.5px solid #ef4444; padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; color: #991b1b; margin-bottom: 10px; line-height: 1.45;">
+            <strong>เหตุผลที่ยกเลิก:</strong> ${escapeHtml(m.cancel_reason || 'ผู้ดูแลระบบยกเลิกกิจกรรม')}
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 4px;">
+              👥 บุคลากรที่ได้รับการจัดสรร (${assigned.length} ท่าน):
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; max-height: 90px; overflow-y: auto; padding: 4px; background: #fafafa; border-radius: 8px; border: 1px solid #f1f5f9;">
+              ${membersHtml}
+            </div>
+          </div>
+
+          <div style="font-size: 0.78rem; color: #15803d; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-circle-check" style="color: #22c55e; font-size: 1rem;"></i>
+            <span>คืนสถานะคิวรอ <strong>(WAITING)</strong> ในรอบปัจจุบันให้ทุกคนเรียบร้อยแล้ว</span>
+          </div>
+        </div>
+      `;
+    });
+
+    cardsList.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading cancelled notices:', err);
+  }
 }
 
 
@@ -1948,6 +2112,16 @@ function resetMissionDateFilter() {
   renderMissionsTable(allMissionsCache);
 }
 
+function triggerCancelFromDetailModal() {
+  if (!currentActiveMissionData || !currentActiveMissionData.id) return;
+  const mId = currentActiveMissionData.id;
+  const mTitle = currentActiveMissionData.mission_title || 'กิจกรรมนี้';
+  closeModal('modal-mission-detail');
+  setTimeout(() => {
+    openCancelMissionModal(mId, mTitle);
+  }, 200);
+}
+
 async function openMissionDetailModal(missionId) {
   try {
     const res = await fetch(`/api/missions/${missionId}`);
@@ -1961,16 +2135,34 @@ async function openMissionDetailModal(missionId) {
     const { mission, assigned = [] } = result;
     currentActiveMissionData = mission;
 
+    const isCancelled = String(mission.status || '').toUpperCase() === 'CANCELLED';
     const creatorName = mission.created_by || 'ผู้ดูแลระบบ';
     const createdAtFormatted = formatDate(mission.created_at || mission.start_date);
 
+    let statusBannerHtml = '';
+    if (isCancelled) {
+      statusBannerHtml = `
+        <div style="background:#fee2e2; border:1px solid #f87171; border-radius:8px; padding:8px 14px; margin-top:8px; color:#991b1b; font-size:0.88rem; font-weight:600; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-ban" style="font-size:1.1rem; color:#dc2626;"></i>
+          <div>
+            <div><strong>กิจกรรมนี้ถูกยกเลิกแล้ว</strong> (CANCELLED)</div>
+            <div style="font-size:0.8rem; font-weight:500; color:#b91c1c; margin-top:2px;">เหตุผล: ${escapeHtml(mission.cancel_reason || 'ผู้ดูแลระบบยกเลิกกิจกรรม')} ${mission.cancelled_at ? `| เมื่อ: ${formatDate(mission.cancelled_at)}` : ''}</div>
+          </div>
+        </div>
+      `;
+    }
+
     document.getElementById('md-title').innerHTML = `
-      <div style="font-size: 1.35rem; font-weight: 700; color: var(--text-heading);">${escapeHtml(mission.mission_title)}</div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-size: 1.35rem; font-weight: 700; color: var(--text-heading);">${escapeHtml(mission.mission_title)}</span>
+        ${isCancelled ? '<span class="badge badge-hold" style="background:#ef4444; color:white; font-size:0.8rem;"><i class="fa-solid fa-ban"></i> CANCELLED</span>' : ''}
+      </div>
       <div style="font-size: 0.85rem; color: #475569; margin-top: 6px; font-weight: 500; background: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;">
         <span><i class="fa-solid fa-user-pen" style="color: #0284c7;"></i> <strong>ผู้สร้างกิจกรรม:</strong> ${escapeHtml(creatorName)}</span>
         <span style="color: #cbd5e1;">|</span>
         <span><i class="fa-solid fa-clock" style="color: #0284c7;"></i> <strong>สร้างเมื่อ:</strong> ${createdAtFormatted}</span>
       </div>
+      ${statusBannerHtml}
     `;
 
     document.getElementById('md-location-time').innerText =
@@ -1978,10 +2170,21 @@ async function openMissionDetailModal(missionId) {
       `ช่วงเวลา: ${formatDate(mission.start_date)} - ` +
       `${formatDate(mission.end_date)}`;
 
+    const scheduleEditBtnHtml = isCancelled ? '' : `<div style="margin-top:10px;"><button type="button" class="btn btn-warning btn-sm" onclick="openEditScheduleModal(${mission.id})" style="font-weight:bold; background:#ea580c; border:none; color:#fff; padding:6px 12px;"><i class="fa-solid fa-calendar-pen"></i> ✏️ อัปเดตเปลี่ยนแปลงกำหนดการ & แจ้ง LINE อัตโนมัติ</button></div>`;
+
     document.getElementById('md-dress-code').innerHTML =
       `การแต่งกาย: ${escapeHtml(mission.dress_code || 'ชุดปฏิบัติงาน อสป.')}` +
       (mission.attachment_file ? `<div style="margin-top:8px;"><a href="${mission.attachment_file}" target="_blank" class="btn btn-outline-primary btn-sm" style="font-weight:bold; padding:6px 14px; display:inline-flex; align-items:center; gap:6px; background:#f0f9ff; color:#0369a1; border:1px solid #0284c7;"><i class="fa-solid fa-file-arrow-down" style="font-size:1.1rem; color:#0284c7;"></i> 📄 ${escapeHtml(cleanFileName(mission.attachment_name))}</a></div>` : '') +
-      `<div style="margin-top:10px;"><button type="button" class="btn btn-warning btn-sm" onclick="openEditScheduleModal(${mission.id})" style="font-weight:bold; background:#ea580c; border:none; color:#fff; padding:6px 12px;"><i class="fa-solid fa-calendar-pen"></i> ✏️ อัปเดตเปลี่ยนแปลงกำหนดการ & แจ้ง LINE อัตโนมัติ</button></div>`;
+      scheduleEditBtnHtml;
+
+    const cancelModalBtn = document.getElementById('md-cancel-btn-in-modal');
+    if (cancelModalBtn) {
+      if (isCancelled) {
+        cancelModalBtn.style.display = 'none';
+      } else {
+        cancelModalBtn.style.display = 'inline-flex';
+      }
+    }
 
     const tbody =
       document.getElementById('md-assigned-body');
