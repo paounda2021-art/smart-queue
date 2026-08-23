@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { dbRun, dbGet, dbAll } = require('../db/database');
-const { sendMissionNotification, sendScheduleChangeNotification, formatDate24h } = require('../services/notification');
+const { sendMissionNotification, sendScheduleChangeNotification, sendCancellationNotification, formatDate24h } = require('../services/notification');
 const onedriveService = require('../services/onedrive');
 
 // Setup Upload Storage for Attachments
@@ -23,6 +23,17 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname);
     cb(null, 'attach-' + uniqueSuffix + ext);
   }
+});
+
+// 📥 Route ดาวน์โหลดไฟล์ฐานข้อมูล SQLite (.db) ล่าสุดจากระบบโดยตรง
+router.get('/admin/download-db', (req, res) => {
+  const dbPath = path.join(__dirname, '../db/fmo_smart_queue.db');
+  if (fs.existsSync(dbPath)) {
+    res.setHeader('Content-Type', 'application/x-sqlite3');
+    res.setHeader('Content-Disposition', 'attachment; filename="fmo_smart_queue.db"');
+    return res.sendFile(dbPath);
+  }
+  res.status(404).send('Database file not found');
 });
 
 function extractUrl(text) {
@@ -2913,6 +2924,144 @@ router.post('/missions/:id/update-schedule', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// POST /api/missions/:id/cancel - ยกเลิกกิจกรรม คืนสถานะคิวเป็น WAITING ให้บุคลากร และสร้างการ์ดแจ้งเตือนยกเลิก
+router.post('/missions/:id/cancel', async (req, res) => {
+  try {
+    const missionId = req.params.id;
+    const { cancel_reason, reason, cancelled_by } = req.body;
+    const finalReason = (cancel_reason || reason || '').trim() || 'ผู้ดูแลระบบยกเลิกกิจกรรม';
+
+    // 1. ค้นหากิจกรรม
+    const mission = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
+    if (!mission) {
+      return res.status(404).json({ success: false, error: 'ไม่พบกิจกรรมที่ต้องการยกเลิก' });
+    }
+
+    if (mission.status === 'CANCELLED') {
+      return res.status(400).json({ success: false, error: 'กิจกรรมนี้ถูกยกเลิกไปเรียบร้อยแล้ว' });
+    }
+
+    // 2. ดึงรายชื่อบุคลากรที่ถูกจัดสรรทั้งหมดในกิจกรรมนี้
+    const assignedMembers = await dbAll(
+      `SELECT ma.*, p.emp_code, p.name, p.department, p.position, p.email, p.phone, p.line_user_id
+       FROM mission_assignments ma
+       JOIN personnel p ON ma.personnel_id = p.id
+       WHERE ma.mission_id = ?;`,
+      [missionId]
+    );
+
+    // 3. อัปเดตสถานะกิจกรรมเป็น CANCELLED
+    await dbRun(
+      `UPDATE missions 
+       SET status = 'CANCELLED', 
+           cancel_reason = ?, 
+           cancelled_at = datetime('now', '+7 hours') 
+       WHERE id = ?;`,
+      [finalReason, missionId]
+    );
+
+    // 4. อัปเดตสถานะการจัดสรรเป็น CANCELLED
+    await dbRun(
+      `UPDATE mission_assignments 
+       SET assignment_status = 'CANCELLED',
+           notes = COALESCE(notes || ' ', '') || '[ยกเลิกกิจกรรม: ' || ? || ']'
+       WHERE mission_id = ?;`,
+      [finalReason, missionId]
+    );
+
+    // 5. 🔄 คืนสถานะคิวเป็น WAITING ให้บุคลากรที่ถูกจัดสรรในกิจกรรมนี้
+    // (ทำให้สามารถกลับมารอรับคิวในรอบปัจจุบันได้ตามเดิม โดยไม่เสียสิทธิ์)
+    let restoredCount = 0;
+    for (const member of assignedMembers) {
+      const runRes = await dbRun(
+        `UPDATE queue_members 
+         SET status = 'WAITING', 
+             hold_reason = NULL, 
+             hold_timestamp = NULL 
+         WHERE personnel_id = ? AND status = 'COMPLETED';`,
+        [member.personnel_id]
+      );
+      if (runRes && runRes.changes > 0) {
+        restoredCount += runRes.changes;
+      }
+    }
+
+    // 6. บันทึกประวัติการส่งการ์ดแจ้งเตือนยกเลิกกิจกรรมลง notification_logs และส่ง LINE Push Flex Card ให้ผู้ได้รับจัดสรร
+    for (const member of assignedMembers) {
+      await dbRun(
+        `INSERT INTO notification_logs (mission_id, personnel_id, channel, recipient, subject_title, content_body, status)
+         VALUES (?, ?, 'SYSTEM_CARD', ?, ?, ?, 'SENT');`,
+        [
+          missionId,
+          member.personnel_id,
+          member.line_user_id || member.email || member.emp_code,
+          `🚫 ประกาศยกเลิกกิจกรรม: ${mission.mission_title}`,
+          `กิจกรรม "${mission.mission_title}" (${mission.mission_code || ''}) ถูกยกเลิกแล้ว เนื่องจาก: ${finalReason}. ระบบได้คืนคิวรอ (WAITING) ให้ท่านเรียบร้อยแล้ว`
+        ]
+      );
+    }
+
+    try {
+      if (assignedMembers.length > 0) {
+        await sendCancellationNotification(mission, assignedMembers, finalReason);
+      }
+    } catch (notifErr) {
+      console.error('❌ เกิดข้อผิดพลาดในการส่ง LINE Push การ์ดยกเลิกกิจกรรม:', notifErr.message);
+    }
+
+    console.log(`🚫 กิจกรรม ID ${missionId} ("${mission.mission_title}") ถูกยกเลิกแล้ว คืนสิทธิ์คิว WAITING ให้บุคลากร ${restoredCount} คน`);
+
+    res.json({
+      success: true,
+      message: `ยกเลิกกิจกรรม "${mission.mission_title}" สำเร็จ! คืนสถานะคิวรอ (WAITING) ให้บุคลากร ${restoredCount} คนเรียบร้อยแล้ว`,
+      mission_id: missionId,
+      cancelled_members_count: assignedMembers.length,
+      restored_queue_count: restoredCount,
+      cancel_reason: finalReason
+    });
+
+  } catch (err) {
+    console.error('Error cancelling mission:', err);
+    res.status(500).json({ success: false, error: 'เกิดข้อผิดพลาดในการยกเลิกกิจกรรม: ' + err.message });
+  }
+});
+
+// GET /api/missions/cancelled-notices - ดึงรายชื่อกิจกรรมที่ยกเลิกพร้อมการ์ดแจ้งเตือนสำหรับบุคลากร
+router.get('/missions/cancelled-notices', async (req, res) => {
+  try {
+    const cancelledMissions = await dbAll(
+      `SELECT m.*, 
+              (SELECT COUNT(*) FROM mission_assignments ma WHERE ma.mission_id = m.id) as total_affected
+       FROM missions m
+       WHERE m.status = 'CANCELLED'
+       ORDER BY m.cancelled_at DESC, m.id DESC;`
+    );
+
+    const result = [];
+    for (const m of cancelledMissions) {
+      const members = await dbAll(
+        `SELECT ma.*, p.emp_code, p.name, p.role_type, p.department, p.position 
+         FROM mission_assignments ma
+         JOIN personnel p ON ma.personnel_id = p.id
+         WHERE ma.mission_id = ?;`,
+        [m.id]
+      );
+      result.push({
+        ...m,
+        assigned_members: members
+      });
+    }
+
+    res.json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 // -------------------------------------------------------------
 // 5. EMERGENCY SUBSTITUTION (การเปลี่ยนตัวกะทันหัน)
 // -------------------------------------------------------------
@@ -3411,6 +3560,11 @@ async function checkAndUpdateMissionStatus(missionId) {
     const mission = await dbGet(`SELECT id, start_date, end_date, status FROM missions WHERE id = ?;`, [missionId]);
     if (!mission) return;
 
+    // ถ้ากิจกรรมถูกยกเลิก (CANCELLED) ไปแล้ว ห้ามเปลี่ยนสถานะกลับ
+    if (mission.status === 'CANCELLED') {
+      return;
+    }
+
     const now = new Date();
     const endDate = mission.end_date ? new Date(mission.end_date) : null;
 
@@ -3503,13 +3657,14 @@ router.get('/missions/calendar-events', async (req, res) => {
 
     const events = missions.map(m => {
       const isSuccess = (m.status === 'SUCCESS' || m.status === 'COMPLETED');
+      const isCancelled = (m.status === 'CANCELLED');
       return {
         id: m.id,
-        title: m.mission_title,
+        title: (isCancelled ? '🚫 [ยกเลิก] ' : '') + m.mission_title,
         start: m.start_date,
         end: m.end_date || m.start_date,
-        backgroundColor: isSuccess ? '#10b981' : '#d97706',
-        borderColor: isSuccess ? '#059669' : '#b45309',
+        backgroundColor: isCancelled ? '#ef4444' : (isSuccess ? '#10b981' : '#d97706'),
+        borderColor: isCancelled ? '#dc2626' : (isSuccess ? '#059669' : '#b45309'),
         extendedProps: {
           location: m.location || 'สะพานปลา อสป.',
           dressCode: m.dress_code || 'ชุดปฏิบัติงาน อสป.',
