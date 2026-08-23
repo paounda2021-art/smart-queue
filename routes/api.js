@@ -888,8 +888,21 @@ router.post('/line-webhook', async (req, res) => {
               }
               else {
                 const isAlreadyAck = (assignment.ack_status === 'ACKNOWLEDGED');
+                const isDeclinedOrBusy = (assignment.ack_status === 'DECLINED_BUSY' || ['BUSY_PENDING', 'SUBSTITUTED', 'DECLINED_NO_SUBSTITUTE'].includes(assignment.assignment_status));
 
-                if (!isAlreadyAck) {
+                if (isAlreadyAck) {
+                  const ackTime = assignment.ack_at ? formatDate24h(assignment.ack_at) : '';
+                  const timeNotice = ackTime ? `เมื่อเวลา ${ackTime} น. ` : '';
+                  replyMessages = [{
+                    type: 'text',
+                    text: `ℹ️ ท่านได้กดรับทราบเข้าร่วมกิจกรรม "${assignment.mission_title || '-'}" เรียบร้อยแล้ว${timeNotice}ค่ะ ไม่ต้องกดซ้ำ ขอบคุณค่ะ 🙏`
+                  }];
+                } else if (isDeclinedOrBusy) {
+                  replyMessages = [{
+                    type: 'text',
+                    text: `⚠️ ไม่สามารถกดรับทราบได้ เนื่องจากท่านได้ยื่นแจ้งติดภารกิจ/ขอลาในกิจกรรม "${assignment.mission_title || '-'}" ไปแล้วก่อนหน้านี้ค่ะ\n\nหากต้องการเปลี่ยนแปลงการเข้าร่วม กรุณาติดต่อเจ้าหน้าที่ ผปส. ค่ะ`
+                  }];
+                } else {
                   await dbRun(
                     `
                     UPDATE mission_assignments
@@ -902,14 +915,7 @@ router.post('/line-webhook', async (req, res) => {
                   );
 
                   await checkAndUpdateMissionStatus(assignment.mission_id);
-                }
 
-                if (isAlreadyAck) {
-                  replyMessages = [{
-                    type: 'text',
-                    text: `ℹ️ ท่านได้กดรับทราบกิจกรรมนี้แล้วค่ะ ขอบคุณค่ะ 🙏`
-                  }];
-                } else {
                   const missionDescription = String(
                     assignment.description || ''
                   ).trim();
@@ -1006,6 +1012,11 @@ router.post('/line-webhook', async (req, res) => {
               replyMessages = [{
                 type: 'text',
                 text: '❌ ไม่พบข้อมูลการจัดสรรในระบบ กรุณาติดต่อเจ้าหน้าที่ค่ะ'
+              }];
+            } else if (assignment.ack_status === 'ACKNOWLEDGED') {
+              replyMessages = [{
+                type: 'text',
+                text: `⚠️ ท่านได้กดรับทราบเข้าร่วมกิจกรรม "${assignment.mission_title || '-'}" ไปแล้วก่อนหน้านี้ค่ะ\n\nหากติดภารกิจด่วนกะทันหัน กรุณาติดต่อเจ้าหน้าที่ ผปส. เพื่อดำเนินการเปลี่ยนตัวในระบบค่ะ 🙏`
               }];
             } else if (assignment.assignment_status === 'BUSY_PENDING') {
               // กดซ้ำขณะรอระบุผู้แทน
