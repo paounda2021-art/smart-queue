@@ -25,17 +25,6 @@ const storage = multer.diskStorage({
   }
 });
 
-// 📥 Route ดาวน์โหลดไฟล์ฐานข้อมูล SQLite (.db) ล่าสุดจากระบบโดยตรง
-router.get('/admin/download-db', (req, res) => {
-  const dbPath = path.join(__dirname, '../db/fmo_smart_queue.db');
-  if (fs.existsSync(dbPath)) {
-    res.setHeader('Content-Type', 'application/x-sqlite3');
-    res.setHeader('Content-Disposition', 'attachment; filename="fmo_smart_queue.db"');
-    return res.sendFile(dbPath);
-  }
-  res.status(404).send('Database file not found');
-});
-
 function extractUrl(text) {
   if (!text) return null;
   const match = text.match(/(https?:\/\/[^\s\n\r]+|(?:www\.|drive\.google\.|docs\.google\.|dropbox\.com|sharepoint\.com)[^\s\n\r]+)/i);
@@ -465,12 +454,14 @@ router.get('/dashboard/stats', async (req, res) => {
     const dirRound = dirState ? dirState.current_round : 1;
     const staffRound = staffState ? staffState.current_round : 1;
 
-    // Next Director in Queue
+    // Next Director in Queue (ยกเว้น DIR-10 และ DIR-09 เนื่องจากไม่เข้าคิวอัตโนมัติ)
     const nextDirector = await dbGet(
       `SELECT qm.*, p.emp_code, p.name, p.department, p.position 
        FROM queue_members qm
        JOIN personnel p ON qm.personnel_id = p.id
-       WHERE qm.role_type = 'DIRECTOR' AND qm.status IN ('HOLD', 'WAITING')
+       WHERE qm.role_type = 'DIRECTOR'
+         AND UPPER(TRIM(p.emp_code)) NOT IN ('DIR-10', 'DIR-09')
+         AND qm.status IN ('HOLD', 'WAITING')
        ORDER BY CASE qm.status WHEN 'HOLD' THEN 1 WHEN 'WAITING' THEN 2 END, qm.queue_order ASC
        LIMIT 1;`
     );
