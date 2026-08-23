@@ -58,30 +58,33 @@ function formatLeaderTitle(person) {
 
 
 function resolveLeaderPerson(directors = [], assignedList = []) {
-  const combined = [...(directors || []), ...(assignedList || [])];
-  if (combined.length === 0) return null;
+  if (Array.isArray(directors) && directors.length > 0) {
+    const execLeader = directors.find(p => {
+      const code = String(p.emp_code || '').trim().toUpperCase();
+      const pos = String(p.position || p.department || '').trim();
+      return (
+        code === 'DIR-09' ||
+        code === 'DIR-10' ||
+        pos.includes('ผู้อำนวยการองค์การสะพานปลา') ||
+        pos.includes('ผออ.') ||
+        pos.includes('รองผู้อำนวยการ') ||
+        pos.includes('รผอ.')
+      );
+    });
+    if (execLeader) return execLeader;
 
-  const execLeader = combined.find(p => {
-    const code = String(p.emp_code || '').trim().toUpperCase();
-    const pos = String(p.position || p.department || '').trim();
-    return (
-      code === 'DIR-09' ||
-      code === 'DIR-10' ||
-      pos.includes('ผู้อำนวยการองค์การสะพานปลา') ||
-      pos.includes('ผออ.') ||
-      pos.includes('รองผู้อำนวยการ') ||
-      pos.includes('รผอ.')
-    );
-  });
-  if (execLeader) return execLeader;
+    const isLeaderPerson = directors.find(p => Number(p.is_leader) === 1);
+    if (isLeaderPerson) return isLeaderPerson;
 
-  const isLeaderPerson = combined.find(p => Number(p.is_leader) === 1);
-  if (isLeaderPerson) return isLeaderPerson;
+    return directors[0] || null;
+  }
 
-  const directorPerson = combined.find(p => String(p.role_type || '').toUpperCase() === 'DIRECTOR');
-  if (directorPerson) return directorPerson;
+  if (Array.isArray(assignedList) && assignedList.length > 0) {
+    const isLeaderPerson = assignedList.find(p => Number(p.is_leader) === 1);
+    if (isLeaderPerson) return isLeaderPerson;
+  }
 
-  return combined[0] || null;
+  return null;
 }
 
 /**
@@ -724,24 +727,6 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
       allDirectors = directors;
     }
 
-    if (!allDirectors || allDirectors.length === 0) {
-      try {
-        const { dbAll } = require('../db/database');
-        allDirectors = await dbAll(`
-          SELECT p.id, p.name, p.position, p.department, p.emp_code
-          FROM queue_members qm
-          JOIN personnel p ON p.id = qm.personnel_id
-          WHERE qm.role_type = 'DIRECTOR' AND qm.status != 'DISABLED'
-          ORDER BY CASE WHEN UPPER(TRIM(p.emp_code)) = 'DIR-10' THEN 1
-                        WHEN UPPER(TRIM(p.emp_code)) = 'DIR-09' THEN 2
-                        ELSE 3 END, qm.queue_order ASC
-          LIMIT 1;
-        `);
-      } catch (e) {
-        console.error('Error fetching fallback director:', e);
-      }
-    }
-
     const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
     const lineHeader = isReallocation ? '🚨 [แจ้งเตือนจัดสรรแทนด่วน]' : '📢 [คำสั่งจัดสรรกิจกรรม อสป.]';
 
@@ -1004,7 +989,7 @@ async function sendUpcomingQueueNotice() {
 /**
  * Dispatch Pre-Event Reminders Automatically via mapped channel (LINE/Email)
  * Conditions requested by User:
- * 1. ก่อนกิจกรรม 1 วัน (24 ชั่วโมงล่วงหน้า): '🔔 เตือนความจำล่วงหน้า (1 วัน)'
+ * 1. ก่อนกิจกรรม 1 วัน : '🔔 เตือนความจำล่วงหน้า (1 วัน)'
  * 2. ก่อนเริ่มกิจกรรม 30 นาที อีกครั้ง: '🚨 เตือนความจำใกล้ถึงเวลา (อีก 30 นาที)'
  */
 async function dispatchPreEventReminders() {
@@ -1073,7 +1058,7 @@ async function dispatchPreEventReminders() {
         textHighlightColor = '#b45309';
         footerNoticeText = '🚨 อีกประมาณ 30 นาทีจะถึงเวลาเริ่มปฏิบัติงาน! กรุณาเตรียมพร้อมและเดินทางถึงสถานที่ปฏิบัติงานทันทีค่ะ';
       } else if (diffMinutes >= 12 * 60 && diffMinutes <= 28 * 60) {
-        // เงื่อนไขที่ 1: เตือนล่วงหน้า 1 วัน (24 ชม.)
+        // เงื่อนไขที่ 1: เตือนล่วงหน้า 1 วัน
         reminderTag = '🔔 เตือนความจำล่วงหน้า (1 วัน)';
         headerBgColor = '#eab308';
         headerSubColor = '#fefce8';
@@ -1125,7 +1110,7 @@ async function dispatchPreEventReminders() {
                     spacing: 'xs',
                     contents: [
                       { type: 'text', text: `📍 สถานที่: ${mission.location || 'สะพานปลา อสป.'}`, size: 'xs', color: '#1e293b', wrap: true },
-                      { type: 'text', text: `⏰ เวลาเริ่มงาน (24 ชม.): ${timeStr}`, size: 'xs', color: textHighlightColor, weight: 'bold' },
+                      { type: 'text', text: `⏰ เวลาเริ่มงาน : ${timeStr}`, size: 'xs', color: textHighlightColor, weight: 'bold' },
                       { type: 'text', text: `👔 การแต่งกาย: ${mission.dress_code || 'ชุดปฏิบัติงาน อสป.'}`, size: 'xs', color: '#8b5cf6', wrap: true }
                     ]
                   },
@@ -1188,7 +1173,7 @@ async function dispatchPreEventReminders() {
               <p>ระบบอัตโนมัติขอแจ้งเตือนความจำปฏิบัติหน้าที่ในกิจกรรม <strong>${mission.mission_title}</strong></p>
               <div style="background: ${isUrgent30m ? '#fff7ed' : '#fffbeb'}; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid ${isUrgent30m ? '#ffedd5' : '#fde68a'};">
                 <p style="margin: 4px 0;"><strong>📍 สถานที่:</strong> ${mission.location || '-'}</p>
-                <p style="margin: 4px 0;"><strong>⏰ เวลา (24 ชม.):</strong> ${timeStr}</p>
+                <p style="margin: 4px 0;"><strong>⏰ เวลา :</strong> ${timeStr}</p>
                 <p style="margin: 4px 0;"><strong>👔 การแต่งกาย:</strong> ${mission.dress_code || 'ชุดปฏิบัติงาน อสป.'}</p>
               </div>
               <p style="color: ${isUrgent30m ? '#9a3412' : '#b45309'}; font-weight: bold;">
@@ -1547,15 +1532,181 @@ async function sendScheduleChangeNotification(mission, assignedList) {
   return true;
 }
 
+function createCancellationFlexCardPayload(mission, cancelReason = '') {
+  const reasonText = (cancelReason || mission.cancel_reason || 'ผู้ดูแลระบบยกเลิกกิจกรรม').trim();
+  const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
+
+  return {
+    type: 'flex',
+    altText: `🚫 ประกาศยกเลิกกิจกรรม: ${mission.mission_title}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#dc2626',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#fee2e2', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: '🚫 ประกาศยกเลิกกิจกรรม/จัดสรรคิว', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'md',
+        contents: [
+          { type: 'text', text: mission.mission_title || '-', weight: 'bold', size: 'md', color: '#0f172a', wrap: true },
+          { type: 'text', text: `รหัสกิจกรรม: ${mission.mission_code || 'ACT-' + mission.id}`, size: 'xs', color: '#64748b', weight: 'bold' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'sm',
+            spacing: 'xs',
+            contents: [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '📍 สถานที่เดิม:', color: '#64748b', size: 'xs', flex: 3 },
+                  { type: 'text', text: mission.location || 'สะพานปลา อสป.', color: '#1e293b', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '⏰ กำหนดการเดิม:', color: '#64748b', size: 'xs', flex: 3 },
+                  { type: 'text', text: timeStr, color: '#dc2626', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                ]
+              }
+            ]
+          },
+          { type: 'separator', margin: 'md' },
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#fef2f2',
+            borderColor: '#fca5a5',
+            borderWidth: '1px',
+            cornerRadius: '8px',
+            paddingAll: '12px',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '⚠️ เหตุผลในการยกเลิก:', size: 'xs', color: '#991b1b', weight: 'bold' },
+              { type: 'text', text: reasonText, size: 'xs', color: '#7f1d1d', wrap: true, margin: 'xs' }
+            ]
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#f0fdf4',
+            borderColor: '#bbf7d0',
+            borderWidth: '1px',
+            cornerRadius: '8px',
+            paddingAll: '10px',
+            margin: 'sm',
+            contents: [
+              { type: 'text', text: '✅ สถานะระบบคิว:', size: 'xs', color: '#166534', weight: 'bold' },
+              { type: 'text', text: 'ระบบได้ทำการคืนสิทธิ์คิวรอ (WAITING) ให้ท่านในรอบปัจจุบันเรียบร้อยแล้ว', size: 'xxs', color: '#15803d', wrap: true, margin: 'xs' },
+              { type: 'text', text: 'รอการจัดสรรคิวในรอบถัดไป', size: 'xxs', color: '#15803d', wrap: true, margin: 'xs' },
+              { type: 'text', text: 'ขออภัยในความไม่สะดวก', size: 'xxs', color: '#dc2626', weight: 'bold', wrap: true, margin: 'xs' }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        paddingAll: '12px',
+        contents: [
+          {
+            type: 'text',
+            text: 'ระบบตอบกลับข้อความอัตโนมัติ • FMO Smart Queue System',
+            size: 'xxs',
+            color: '#94a3b8',
+            align: 'end',
+            margin: 'xs'
+          }
+        ]
+      }
+    }
+  };
+}
+
+async function sendCancellationNotification(mission, assignedList = [], cancelReason = '') {
+  const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!lineToken) {
+    console.warn('⚠️ ไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN ใน .env');
+    return false;
+  }
+
+  const cancelCard = createCancellationFlexCardPayload(mission, cancelReason);
+
+  for (const person of assignedList) {
+    if (person.line_user_id) {
+      try {
+        await axios.post(
+          'https://api.line.me/v2/bot/message/push',
+          {
+            to: person.line_user_id,
+            messages: [cancelCard]
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${lineToken}`
+            }
+          }
+        );
+        console.log(`✅ ส่งการ์ดแจ้งยกเลิกกิจกรรมทาง LINE ให้ ${person.name} (${person.emp_code}) สำเร็จ`);
+      } catch (err) {
+        console.error(`❌ ส่งการ์ดแจ้งยกเลิกทาง LINE ให้ ${person.name} ล้มเหลว:`, err.response?.data || err.message);
+      }
+    }
+  }
+
+  const lineGroupId = process.env.LINE_GROUP_ID;
+  if (lineGroupId) {
+    try {
+      await axios.post(
+        'https://api.line.me/v2/bot/message/push',
+        {
+          to: lineGroupId,
+          messages: [cancelCard]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${lineToken}`
+          }
+        }
+      );
+      console.log('✅ ส่งการ์ดแจ้งยกเลิกกิจกรรมเข้า LINE Group สำเร็จ');
+    } catch (err) {
+      console.error('❌ ส่งการ์ดแจ้งยกเลิกเข้า LINE Group ล้มเหลว:', err.response?.data || err.message);
+    }
+  }
+
+  return true;
+}
+
 module.exports = {
   sendMissionNotification,
   sendUpcomingQueueNotice,
   dispatchPreEventReminders,
   sendScheduleChangeNotification,
+  sendCancellationNotification,
   formatDate24h,
   createLineFlexCardPayload,
   createPersonalizedFlexCard,
-  createPeerSwapConsentFlexCard
+  createPeerSwapConsentFlexCard,
+  createCancellationFlexCardPayload
 };
 
 
