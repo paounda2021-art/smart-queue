@@ -7,6 +7,7 @@ const multer = require('multer');
 const { dbRun, dbGet, dbAll } = require('../db/database');
 const { sendMissionNotification, sendScheduleChangeNotification, sendCancellationNotification, formatDate24h } = require('../services/notification');
 const onedriveService = require('../services/onedrive');
+const { createAutoCarBooking } = require('../services/carBooking');
 
 // Setup Upload Storage for Attachments
 const uploadDir = path.join(__dirname, '../public/uploads');
@@ -2737,6 +2738,7 @@ router.post('/missions/create', async (req, res) => {
         item => item.personnel_id
       );
 
+      let assignedList = [];
       if (allAssignedIds.length > 0) {
         const placeholders = allAssignedIds
           .map(() => '?')
@@ -2758,7 +2760,7 @@ router.post('/missions/create', async (req, res) => {
           ])
         );
 
-        const assignedList = assignedPersonnel.map(person => {
+        assignedList = assignedPersonnel.map(person => {
           const assignment =
             assignmentMap.get(Number(person.id));
 
@@ -2772,36 +2774,44 @@ router.post('/missions/create', async (req, res) => {
           };
         });
 
-        const missionData = await dbGet(
-          `
-          SELECT *
-          FROM missions
-          WHERE id = ?;
-          `,
+        let missionData = await dbGet(
+          `SELECT * FROM missions WHERE id = ?;`,
           [missionId]
         );
 
-        if (missionData) {
+        if (missionData && assignedList.length > 0) {
           sendMissionNotification(
             missionData,
             assignedList,
             false
           ).catch(error => {
-            console.error(
-              '❌ Notification dispatch error:',
-              error
-            );
+            console.error('❌ Notification dispatch error:', error);
           });
 
-          console.log(
-            `📢 ส่งแจ้งเตือนกิจกรรม "${mission_title}" ` +
-            `ให้ ${assignedList.length} คน`
-          );
+          console.log(`📢 ส่งแจ้งเตือนกิจกรรม "${mission_title}" ให้ ${assignedList.length} คน`);
         }
+      }
+
+      // 🚗 ยิง API สร้างคำขอจองรถยนต์เบื้องหลังอัตโนมัติไปยังระบบ Car Booking
+      const finalMissionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
+      if (finalMissionData) {
+        createAutoCarBooking(finalMissionData, assignedList)
+          .then(async (carRes) => {
+            if (carRes && carRes.success && carRes.booking_id) {
+              console.log(`✅ [Auto-Car-Booking] Created booking ${carRes.booking_id} for mission ${missionId}`);
+              await dbRun(
+                `UPDATE missions SET car_booking_id = ?, car_booking_status = ? WHERE id = ?;`,
+                [carRes.booking_id, carRes.status || 'PENDING', missionId]
+              ).catch(e => console.error('Error saving car_booking_id:', e));
+            } else {
+              console.warn('⚠️ Auto-Car-Booking did not return success:', carRes);
+            }
+          })
+          .catch(err => console.error('❌ Auto-Car-Booking error:', err));
       }
     } catch (notificationError) {
       console.error(
-        '❌ เกิดข้อผิดพลาดตอนส่งแจ้งเตือน:',
+        '❌ เกิดข้อผิดพลาดตอนส่งแจ้งเตือน/จองรถ:',
         notificationError
       );
     }

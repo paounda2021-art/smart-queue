@@ -178,6 +178,9 @@ async function initSchema() {
   try { await dbRun(`ALTER TABLE missions ADD COLUMN mission_code VARCHAR(50);`); } catch (e) {}
   try { await dbRun(`ALTER TABLE missions ADD COLUMN cancel_reason TEXT;`); } catch (e) {}
   try { await dbRun(`ALTER TABLE missions ADD COLUMN cancelled_at DATETIME;`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE missions ADD COLUMN car_booking_id TEXT;`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE missions ADD COLUMN car_booking_status TEXT;`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE missions ADD COLUMN car_booking_details TEXT;`); } catch (e) {}
   try { await dbRun(`UPDATE missions SET status = 'CANCELLED' WHERE (cancel_reason IS NOT NULL AND cancel_reason != '') OR cancelled_at IS NOT NULL;`); } catch (e) {}
 
   // Notification Logs Table
