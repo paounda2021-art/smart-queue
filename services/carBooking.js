@@ -20,6 +20,11 @@ async function createAutoCarBooking(mission, assignedList = []) {
         position: p.position || p.role_type || ''
       }));
 
+      let reqName = (mission.created_by || '').trim();
+      if (!reqName || reqName.toLowerCase().includes('admin') || reqName.includes('ผู้ดูแลระบบ') || reqName.includes('Admin')) {
+        reqName = 'น.ส.รณิดา  โชติธนาอุดม';
+      }
+
       const payload = {
         mission_id: mission.id,
         title: mission.mission_title || '',
@@ -27,7 +32,8 @@ async function createAutoCarBooking(mission, assignedList = []) {
         startDate: mission.start_date ? String(mission.start_date).split('T')[0] : '',
         endDate: mission.end_date ? String(mission.end_date).split('T')[0] : '',
         passengers: passengersFormatted,
-        requesterName: mission.created_by || 'ระบบ Smart Queue',
+        requesterName: reqName,
+        travelType: 'fmo_car',
         purpose: `ปฏิบัติภารกิจ อสป.: ${mission.mission_title || ''}${mission.location ? ' ณ ' + mission.location : ''}`
       };
 
