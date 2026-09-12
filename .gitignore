@@ -2,6 +2,8 @@ node_modules/
 .env
 *.pdf
 *.db
+*.db-wal
+*.db-shm
 *.xlsx
 scratch/
 public/uploads/

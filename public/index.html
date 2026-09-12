@@ -590,19 +590,36 @@
 
         </div>
 
-        <!-- Date Range Filter Bar -->
+        <!-- Date & Status Filter Bar -->
         <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:1.25rem; background:var(--input-bg); padding:0.85rem 1.1rem; border-radius:12px; border:1px solid var(--card-border);">
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <label style="font-size:0.85rem; font-weight:600; color:var(--text-heading); display:flex; align-items:center; gap:6px; margin:0;">
-              <i class="fa-solid fa-calendar-days text-cyan"></i> ค้นหาตามช่วงวันที่กิจกรรม:
-            </label>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <!-- Status Filter -->
             <div style="display:flex; align-items:center; gap:6px;">
-              <input type="date" id="report-start-date" class="form-control form-control-sm" style="width:auto; padding:4px 8px; font-size:0.82rem;">
-              <span style="color:var(--text-muted); font-size:0.82rem;">ถึง</span>
-              <input type="date" id="report-end-date" class="form-control form-control-sm" style="width:auto; padding:4px 8px; font-size:0.82rem;">
+              <label style="font-size:0.85rem; font-weight:600; color:var(--text-heading); display:flex; align-items:center; gap:6px; margin:0;">
+                <i class="fa-solid fa-filter text-cyan"></i> สถานะกิจกรรม:
+              </label>
+              <select id="report-status-filter" class="form-control form-control-sm" onchange="applyMissionFilters()" style="width:auto; padding:4px 8px; font-size:0.82rem; font-weight:600;">
+                <option value="DEFAULT">⚡ ซ่อน SUCCESS ที่สิ้นสุดแล้ว (ค่าเริ่มต้น)</option>
+                <option value="ALL">📋 แสดงทุกสถานะ (รวมประวัติย้อนหลัง)</option>
+                <option value="SCHEDULED">🟠 SCHEDULED (รอดำเนินการ)</option>
+                <option value="ON_PROCESS">🟡 ON_PROCESS (กำลังดำเนินงาน)</option>
+                <option value="SUCCESS">🟢 SUCCESS (เสร็จสิ้น)</option>
+                <option value="CANCELLED">🔴 CANCELLED (ยกเลิก)</option>
+              </select>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="filterMissionsByDate()" style="padding:4px 12px; font-size:0.8rem;">
-              <i class="fa-solid fa-magnifying-glass"></i> กรองวันที่
+
+            <!-- Date Range Filter -->
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label style="font-size:0.85rem; font-weight:600; color:var(--text-heading); display:flex; align-items:center; gap:6px; margin:0;">
+                <i class="fa-solid fa-calendar-days text-cyan"></i> วันที่กิจกรรม:
+              </label>
+              <input type="date" id="report-start-date" class="form-control form-control-sm" style="width:auto; padding:4px 8px; font-size:0.82rem;" onchange="applyMissionFilters()">
+              <span style="color:var(--text-muted); font-size:0.82rem;">ถึง</span>
+              <input type="date" id="report-end-date" class="form-control form-control-sm" style="width:auto; padding:4px 8px; font-size:0.82rem;" onchange="applyMissionFilters()">
+            </div>
+
+            <button class="btn btn-primary btn-sm" onclick="applyMissionFilters()" style="padding:4px 12px; font-size:0.8rem;">
+              <i class="fa-solid fa-magnifying-glass"></i> กรองข้อมูล
             </button>
             <button class="btn btn-secondary btn-sm" onclick="resetMissionDateFilter()" style="padding:4px 12px; font-size:0.8rem;">
               <i class="fa-solid fa-rotate-left"></i> ล้างตัวกรอง

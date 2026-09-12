@@ -1845,21 +1845,96 @@ async function loadAllMissions() {
   const tbody = document.getElementById('all-missions-table-body');
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">กำลังโหลดรายการกิจกรรม...</td></tr>';
 
-
   try {
     const res = await fetch('/api/missions');
     const result = await res.json();
 
     if (!result.success || result.missions.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">ยังไม่มีรายการกิจกรรมในระบบ</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">ยังไม่มีรายการกิจกรรมในระบบ</td></tr>';
       return;
     }
 
     allMissionsCache = result.missions;
-    resetMissionDateFilter();
+    applyMissionFilters();
   } catch (err) {
     console.error('Error loading all missions:', err);
   }
+}
+
+function applyMissionFilters() {
+  const startInput = document.getElementById('report-start-date')?.value;
+  const endInput = document.getElementById('report-end-date')?.value;
+  const statusSelect = document.getElementById('report-status-filter')?.value || 'DEFAULT';
+  const summaryEl = document.getElementById('report-filter-summary');
+
+  const nowMs = Date.now();
+
+  const filtered = allMissionsCache.filter(m => {
+    const statusUpper = String(m.status || '').toUpperCase();
+    const isSuccess = (statusUpper === 'SUCCESS' || statusUpper === 'COMPLETED');
+
+    // คำนวณว่าสิ้นสุดระยะเวลากิจกรรมแล้วหรือยัง (end_date < now)
+    let endDateMs = 0;
+    if (m.end_date) {
+      endDateMs = new Date(m.end_date).getTime();
+      if (isNaN(endDateMs)) {
+        endDateMs = new Date(String(m.end_date).replace(' ', 'T')).getTime();
+      }
+    }
+    const isEnded = endDateMs > 0 ? (nowMs > endDateMs) : false;
+
+    // 1. ตัวกรองสถานะ (Status Filter)
+    if (statusSelect === 'DEFAULT') {
+      // ค่าเริ่มต้น: ซ่อนกิจกรรม SUCCESS ที่สิ้นสุดระยะเวลาแล้วจากหน้าจอ
+      if (isSuccess && isEnded) {
+        return false;
+      }
+    } else if (statusSelect === 'SCHEDULED') {
+      if (statusUpper !== 'SCHEDULED') return false;
+    } else if (statusSelect === 'ON_PROCESS') {
+      if (statusUpper !== 'ON_PROCESS' && statusUpper !== 'ON PROCESS') return false;
+    } else if (statusSelect === 'SUCCESS') {
+      if (!isSuccess) return false;
+    } else if (statusSelect === 'CANCELLED') {
+      if (statusUpper !== 'CANCELLED') return false;
+    }
+    // ถ้าเลือก 'ALL' จะแสดงทุกรายการรวมถึง SUCCESS ที่จบแล้ว
+
+    // 2. ตัวกรองช่วงวันที่ (Date Range Filter)
+    if (m.start_date) {
+      const mDateStr = m.start_date.split(' ')[0];
+      if (startInput && mDateStr < startInput) return false;
+      if (endInput && mDateStr > endInput) return false;
+    }
+
+    return true;
+  });
+
+  if (summaryEl) {
+    if (statusSelect === 'DEFAULT') {
+      summaryEl.textContent = `แสดง ${filtered.length} จาก ${allMissionsCache.length} รายการ (ซ่อน SUCCESS ที่สิ้นสุดแล้ว)`;
+    } else {
+      summaryEl.textContent = `พบ ${filtered.length} จาก ${allMissionsCache.length} รายการ`;
+    }
+  }
+
+  renderMissionsTable(filtered);
+}
+
+function filterMissionsByDate() {
+  applyMissionFilters();
+}
+
+function resetMissionDateFilter() {
+  const startEl = document.getElementById('report-start-date');
+  const endEl = document.getElementById('report-end-date');
+  const statusEl = document.getElementById('report-status-filter');
+
+  if (startEl) startEl.value = '';
+  if (endEl) endEl.value = '';
+  if (statusEl) statusEl.value = 'DEFAULT';
+
+  applyMissionFilters();
 }
 
 function renderMissionsTable(list) {
@@ -2064,42 +2139,7 @@ async function loadCancelledNoticeCards() {
 }
 
 
-function filterMissionsByDate() {
-  const startInput = document.getElementById('report-start-date')?.value;
-  const endInput = document.getElementById('report-end-date')?.value;
-  const summaryEl = document.getElementById('report-filter-summary');
 
-  if (!startInput && !endInput) {
-    showToast('กรุณาเลือกวันที่เริ่มต้น หรือ วันที่สิ้นสุด', 'warning');
-    return;
-  }
-
-  const filtered = allMissionsCache.filter(m => {
-    if (!m.start_date) return false;
-    const mDateStr = m.start_date.split(' ')[0];
-    if (startInput && mDateStr < startInput) return false;
-    if (endInput && mDateStr > endInput) return false;
-    return true;
-  });
-
-  if (summaryEl) {
-    summaryEl.textContent = `พบ ${filtered.length} จาก ${allMissionsCache.length} รายการ`;
-  }
-
-  renderMissionsTable(filtered);
-}
-
-function resetMissionDateFilter() {
-  const startEl = document.getElementById('report-start-date');
-  const endEl = document.getElementById('report-end-date');
-  const summaryEl = document.getElementById('report-filter-summary');
-
-  if (startEl) startEl.value = '';
-  if (endEl) endEl.value = '';
-  if (summaryEl) summaryEl.textContent = `กิจกรรมทั้งหมด (${allMissionsCache.length} รายการ)`;
-
-  renderMissionsTable(allMissionsCache);
-}
 
 function triggerCancelFromDetailModal() {
   if (!currentActiveMissionData || !currentActiveMissionData.id) return;
