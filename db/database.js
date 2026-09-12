@@ -4,6 +4,9 @@ const path = require('path');
 const dbPath = path.resolve(__dirname, 'fmo_smart_queue.db');
 const db = new sqlite3.Database(dbPath);
 
+// 💡 ตั้งค่า Busy Timeout ให้ SQLite รอสูงสุด 10 วินาที เมื่อมี Transaction ซ้อนกัน (ป้องกัน SQLITE_BUSY: database is locked)
+db.configure('busyTimeout', 10000);
+
 // Promisified database helpers for async/await
 const dbRun = (sql, params = []) => {
   return new Promise((resolve, reject) => {
@@ -33,7 +36,14 @@ const dbAll = (sql, params = []) => {
 };
 
 async function initSchema() {
-  await dbRun(`PRAGMA foreign_keys = ON;`);
+  try {
+    // 💡 เปิดใช้งาน WAL Mode (Write-Ahead Logging) เพื่อรองรับ Concurrent Read/Write โดยไม่เกิด Database Locked
+    await dbRun(`PRAGMA journal_mode = WAL;`);
+    await dbRun(`PRAGMA busy_timeout = 10000;`);
+    await dbRun(`PRAGMA foreign_keys = ON;`);
+  } catch (e) {
+    console.error('Pragma init error:', e.message);
+  }
 
   // Personnel Table
   await dbRun(`
