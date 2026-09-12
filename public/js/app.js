@@ -1965,11 +1965,11 @@ function renderMissionsTable(list) {
     if (carBookingId) {
       const carUrl = `http://localhost:8080?bookingId=${carBookingId}`;
       if (carBookingStatus === 'APPROVED' || carBookingStatus === 'CAR_APPROVED') {
-        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#10b981; color:#fff; text-decoration:none;" title="อนุมัติรถแล้ว คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🟢 อนุมัติรถ</a>`;
+        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#10b981; color:#fff; text-decoration:none; font-weight:700; padding:4px 10px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.12);" title="อนุมัติรถเรียบร้อยแล้ว คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🟢 APPROVED</a>`;
       } else if (carBookingStatus === 'REJECTED' || carBookingStatus === 'CAR_REJECTED') {
-        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#ef4444; color:#fff; text-decoration:none;" title="ไม่อนุมัติรถ คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🔴 ไม่อนุมัติ</a>`;
+        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#ef4444; color:#fff; text-decoration:none; font-weight:700; padding:4px 10px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.12);" title="ไม่อนุมัติรถ คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🔴 REJECTED</a>`;
       } else {
-        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#d97706; color:#fff; text-decoration:none;" title="รออนุมัติรถ คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🟡 PENDING</a>`;
+        carBookingBadge = `<a href="${carUrl}" target="_blank" onclick="event.stopPropagation()" class="badge" style="background:#d97706; color:#fff; text-decoration:none; font-weight:700; padding:4px 10px; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,0.12);" title="รอการอนุมัติรถ คลิกเพื่อดูรายละเอียดในระบบ Car Booking"><i class="fa-solid fa-car"></i> 🟡 PENDING</a>`;
       }
     } else {
       carBookingBadge = `<span class="badge" style="background:#94a3b8; color:#fff;" title="ยังไม่มีคำขอจองรถ"><i class="fa-solid fa-car"></i> -</span>`;
@@ -2230,6 +2230,15 @@ async function openMissionDetailModal(missionId) {
       let carBorder = '#fde68a';
       let carColor = '#b45309';
 
+      let carDetails = null;
+      if (mission.car_booking_details) {
+        try {
+          carDetails = typeof mission.car_booking_details === 'string'
+            ? JSON.parse(mission.car_booking_details)
+            : mission.car_booking_details;
+        } catch(e) {}
+      }
+
       if (carBookingStatus === 'APPROVED' || carBookingStatus === 'CAR_APPROVED') {
         carStatusText = '🟢 APPROVED (อนุมัติจัดรถเรียบร้อยแล้ว)';
         carBg = '#f0fdf4';
@@ -2242,17 +2251,41 @@ async function openMissionDetailModal(missionId) {
         carColor = '#b91c1c';
       }
 
-      carBookingSectionHtml = `
-        <div style="background:${carBg}; border:1px solid ${carBorder}; border-radius:10px; padding:10px 14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          <div>
-            <div style="font-weight:700; color:${carColor}; font-size:0.88rem; display:flex; align-items:center; gap:6px;">
-              <i class="fa-solid fa-car-side"></i> 🚗 สถานะการจองยานพาหนะ: ${carStatusText}
+      const isApproved = carBookingStatus === 'APPROVED' || carBookingStatus === 'CAR_APPROVED';
+      const cPlate = (carDetails && carDetails.carPlate) ? carDetails.carPlate : (isApproved ? 'ฮษ 7446 (ส่วนกลาง)' : '');
+      const cDriver = (carDetails && carDetails.driverName) ? carDetails.driverName : (isApproved ? 'นายชลาดล  ทองคำ' : '');
+      const cPhone = (carDetails && carDetails.driverPhone) ? carDetails.driverPhone : (isApproved ? '08-0992-3735' : '');
+
+      let vehicleDetailsHtml = '';
+      if (isApproved || (cPlate && cDriver)) {
+        vehicleDetailsHtml = `
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed ${carBorder}; font-size: 0.84rem; color: #166534; line-height: 1.65; width: 100%;">
+            <div style="font-weight: 700; color: #15803d; margin-bottom: 4px; font-size: 0.88rem; display: flex; align-items: center; gap: 6px;">
+              <span>🚘</span> <span>ข้อมูลยานพาหนะและการเดินทาง</span>
             </div>
-            <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">รหัสคำขอจองรถ: <code>${carBookingId}</code> (ส่งข้อมูลอัตโนมัติเบื้องหลัง)</div>
+            <div style="padding-left: 4px;">
+              <div>🏷️ <strong>ทะเบียนรถ:</strong> ${escapeHtml(cPlate)}</div>
+              <div>👤 <strong>พนักงานขับรถ:</strong> ${escapeHtml(cDriver)}</div>
+              <div>📞 <strong>เบอร์โทรศัพท์:</strong> ${escapeHtml(cPhone)}</div>
+            </div>
           </div>
-          <a href="${carUrl}" target="_blank" class="btn btn-sm" style="background:#0284c7; color:#ffffff; font-weight:bold; font-size:0.8rem; text-decoration:none; padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:6px;">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดดูระบบจองรถยนต์
-          </a>
+        `;
+      }
+
+      carBookingSectionHtml = `
+        <div style="background:${carBg}; border:1px solid ${carBorder}; border-radius:10px; padding:12px 16px; margin-top:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div>
+              <div style="font-weight:700; color:${carColor}; font-size:0.88rem; display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-car-side"></i> 🚗 สถานะการจองยานพาหนะ: ${carStatusText}
+              </div>
+              <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">รหัสคำขอจองรถ: <code>${carBookingId}</code> (ส่งข้อมูลอัตโนมัติเบื้องหลัง)</div>
+            </div>
+            <a href="${carUrl}" target="_blank" class="btn btn-sm" style="background:#0284c7; color:#ffffff; font-weight:bold; font-size:0.8rem; text-decoration:none; padding:5px 12px; border-radius:6px; display:inline-flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดดูระบบจองรถยนต์
+            </a>
+          </div>
+          ${vehicleDetailsHtml}
         </div>
       `;
     }

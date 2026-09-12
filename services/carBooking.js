@@ -21,7 +21,7 @@ async function createAutoCarBooking(mission, assignedList = []) {
       }));
 
       let reqName = (mission.created_by || '').trim();
-      if (!reqName || reqName.toLowerCase().includes('admin') || reqName.includes('ผู้ดูแลระบบ') || reqName.includes('Admin')) {
+      if (!reqName) {
         reqName = 'น.ส.รณิดา  โชติธนาอุดม';
       }
 

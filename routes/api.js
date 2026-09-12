@@ -4618,4 +4618,115 @@ router.post('/admin/update-queue-order', async (req, res) => {
   }
 });
 
+// POST /api/external/update-car-status - Webhook Callback จากระบบ Car Booking เมื่อสถานะอนุมัติรถเปลี่ยน
+router.post('/external/update-car-status', async (req, res) => {
+  try {
+    const { booking_id, status, car_id, car_name, car_plate, driver_name, driver_phone } = req.body;
+    if (!booking_id) {
+      return res.status(400).json({ success: false, error: 'กรุณาระบุ booking_id' });
+    }
+
+    const cleanBookingId = String(booking_id).trim();
+    const statusUpper = String(status || 'APPROVED').toUpperCase();
+    
+    let mission = await dbGet(`SELECT * FROM missions WHERE car_booking_id = ? OR car_booking_id LIKE ?;`, [cleanBookingId, `%${cleanBookingId}%`]);
+
+    const carDetailsObj = {
+      carId: car_id || '',
+      carName: car_name || '',
+      carPlate: car_plate || '',
+      driverName: driver_name || '',
+      driverPhone: driver_phone || '',
+      updatedAt: new Date().toISOString()
+    };
+    const carDetailsJson = JSON.stringify(carDetailsObj);
+
+    if (!mission) {
+      mission = await dbGet(`SELECT * FROM missions WHERE car_booking_status = 'PENDING' OR car_booking_status IS NULL ORDER BY id DESC LIMIT 1;`);
+    }
+
+    if (mission) {
+      await dbRun(
+        `UPDATE missions SET car_booking_status = ?, car_booking_details = ? WHERE id = ?;`,
+        [statusUpper, carDetailsJson, mission.id]
+      );
+      console.log(`✅ [CarStatus Callback] Updated Mission ID ${mission.id} (${cleanBookingId}) -> Status: ${statusUpper}`);
+      return res.json({ success: true, message: `Updated car status for mission ${mission.id}`, mission_id: mission.id, status: statusUpper });
+    }
+
+    return res.status(404).json({ success: false, error: `ไม่พบกิจกรรมที่เชื่อมโยงกับ booking_id: ${cleanBookingId}` });
+  } catch (err) {
+    console.error('Error updating car status from callback:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET/POST /api/external/sync-car-status - ดึงข้อมูลสถานะการจองรถล่าสุดจาก Car Booking และอัปเดตลง Smart Queue DB
+router.all('/external/sync-car-status', async (req, res) => {
+  try {
+    const axios = require('axios');
+    const CAR_BOOKING_WEB_URL = process.env.CAR_BOOKING_WEB_URL || 'http://localhost:8080';
+    
+    // ดึงข้อมูลภารกิจทั้งหมดใน Smart Queue ที่มีรหัสจองรถ
+    const missions = await dbAll(`SELECT * FROM missions WHERE car_booking_id IS NOT NULL AND car_booking_id != '';`);
+    if (missions.length === 0) {
+      return res.json({ success: true, count: 0, message: 'ไม่มีภารกิจที่มีรหัสจองรถ' });
+    }
+
+    // ดึงรายการ bookings ทั้งหมดจาก car-booking server
+    let bookingsList = [];
+    try {
+      const resp = await axios.get(`${CAR_BOOKING_WEB_URL}/api/get-bookings`, { timeout: 3000 });
+      bookingsList = Array.isArray(resp.data) ? resp.data : [];
+    } catch (e) {
+      // หากดึงจาก API ไม่ได้ ให้ลองอ่านไฟล์ bookings.json โดยตรง
+      const fs = require('fs');
+      const bookingsPath = 'c:/apps/car-booking/bookings.json';
+      if (fs.existsSync(bookingsPath)) {
+        try {
+          bookingsList = JSON.parse(fs.readFileSync(bookingsPath, 'utf8'));
+        } catch(fileErr) {}
+      }
+    }
+
+    let updatedCount = 0;
+    const DEFAULT_CARS = [
+      { id: 'A', name: 'Toyota Commuter', plate: 'ฮษ 7446 (ส่วนกลาง)', driverName: 'นายชลาดล  ทองคำ', phone: '08-0992-3735' },
+      { id: 'B', name: 'Toyota Commuter', plate: '1 นญ 1865 (เช่า)', driverName: 'นายสันติ สุธรรม', phone: '09-1021-4916' },
+      { id: 'C', name: 'Toyota Commuter', plate: '1 นญ 2029 (เช่า)', driverName: 'นายคมกฤษ คุ้มชัย', phone: '09-4849-1122' },
+      { id: 'D', name: 'Toyota Commuter', plate: 'ฮล 2521 (รถสวัสดิการ)', driverName: '-', phone: '-' }
+    ];
+
+    for (const m of missions) {
+      const targetB = bookingsList.find(b => b && b.id && b.id.trim().toUpperCase() === m.car_booking_id.trim().toUpperCase());
+      if (targetB) {
+        const statusUpper = String(targetB.status || 'PENDING').toUpperCase();
+        let carObj = DEFAULT_CARS.find(c => c.id === targetB.carId) || {};
+        
+        const carDetailsObj = {
+          carId: targetB.carId || carObj.id || '',
+          carName: carObj.name || 'Toyota Commuter',
+          carPlate: carObj.plate || '',
+          driverName: targetB.driverName || carObj.driverName || '',
+          driverPhone: carObj.phone || '',
+          updatedAt: new Date().toISOString()
+        };
+
+        if (m.car_booking_status !== statusUpper || !m.car_booking_details) {
+          await dbRun(
+            `UPDATE missions SET car_booking_status = ?, car_booking_details = ? WHERE id = ?;`,
+            [statusUpper, JSON.stringify(carDetailsObj), m.id]
+          );
+          updatedCount++;
+        }
+      }
+    }
+
+    res.json({ success: true, count: updatedCount, message: `ซิงค์สถานะการอนุมัติรถเรียบร้อยแล้ว (${updatedCount} รายการได้รับการอัปเดต)` });
+  } catch (err) {
+    console.error('Error syncing car status:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

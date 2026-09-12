@@ -1227,6 +1227,43 @@ async function dispatchPreEventReminders() {
                       }
                     ]
                   },
+                  ...((() => {
+                    let carDetails = null;
+                    if (mission.car_booking_details) {
+                      try { carDetails = JSON.parse(mission.car_booking_details); } catch(e) {}
+                    }
+                    const statusUpper = String(mission.car_booking_status || '').toUpperCase();
+                    if (carDetails || statusUpper === 'APPROVED' || statusUpper === 'CAR_APPROVED') {
+                      const cPlate = (carDetails && carDetails.carPlate) ? carDetails.carPlate : 'ฮษ 7446 (ส่วนกลาง)';
+                      const cDriver = (carDetails && carDetails.driverName) ? carDetails.driverName : 'นายชลาดล  ทองคำ';
+                      const cPhone = (carDetails && carDetails.driverPhone) ? carDetails.driverPhone : '08-0992-3735';
+                      return [{
+                        type: 'box',
+                        layout: 'vertical',
+                        backgroundColor: '#f0fdf4',
+                        borderColor: '#bbf7d0',
+                        borderWidth: '1px',
+                        paddingAll: '10px',
+                        cornerRadius: '8px',
+                        margin: 'md',
+                        contents: [
+                          { type: 'text', text: '🚘 ข้อมูลยานพาหนะและการเดินทาง', color: '#166534', size: 'xs', weight: 'bold' },
+                          {
+                            type: 'box',
+                            layout: 'vertical',
+                            margin: 'xs',
+                            spacing: 'xs',
+                            contents: [
+                              { type: 'text', text: `🏷️ ทะเบียนรถ: ${cPlate}`, color: '#15803d', size: 'xs', wrap: true, weight: 'bold' },
+                              { type: 'text', text: `👤 พนักงานขับรถ: ${cDriver}`, color: '#15803d', size: 'xs', wrap: true },
+                              { type: 'text', text: `📞 เบอร์โทรศัพท์: ${cPhone}`, color: '#15803d', size: 'xs', wrap: true }
+                            ]
+                          }
+                        ]
+                      }];
+                    }
+                    return [];
+                  })()),
                   {
                     type: 'box',
                     layout: 'vertical',
