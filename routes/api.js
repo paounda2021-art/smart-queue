@@ -4667,6 +4667,17 @@ router.all('/external/sync-car-status', async (req, res) => {
     const axios = require('axios');
     const CAR_BOOKING_WEB_URL = process.env.CAR_BOOKING_WEB_URL || 'http://localhost:8080';
     
+    // 💡 Auto-link 4 old missions if car_booking_id is missing
+    const oldMappings = [
+      { code: 'FMO-AT0869-002', bookingId: 'BGK-6908-071' },
+      { code: 'FMO-AT0969-003', bookingId: 'BGK-6909-033' },
+      { code: 'FMO-AT0969-001', bookingId: 'BGK-6909-045' },
+      { code: 'FMO-AT0969-002', bookingId: 'BGK-6909-046' }
+    ];
+    for (const item of oldMappings) {
+      await dbRun(`UPDATE missions SET car_booking_id = ? WHERE mission_code = ? AND (car_booking_id IS NULL OR car_booking_id = '');`, [item.bookingId, item.code]);
+    }
+
     // ดึงข้อมูลภารกิจทั้งหมดใน Smart Queue ที่มีรหัสจองรถ
     const missions = await dbAll(`SELECT * FROM missions WHERE car_booking_id IS NOT NULL AND car_booking_id != '';`);
     if (missions.length === 0) {
