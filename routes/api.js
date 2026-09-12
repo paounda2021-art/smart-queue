@@ -2780,6 +2780,7 @@ router.post('/missions/create', async (req, res) => {
         );
 
         if (missionData && assignedList.length > 0) {
+          // 📢 ส่งแจ้งเตือนการ์ดจัดสรรคิว LINE ให้ผู้ร่วมกิจกรรมทุกคนทันทีตามโฟลว์เดิม
           sendMissionNotification(
             missionData,
             assignedList,
@@ -2788,30 +2789,31 @@ router.post('/missions/create', async (req, res) => {
             console.error('❌ Notification dispatch error:', error);
           });
 
-          console.log(`📢 ส่งแจ้งเตือนกิจกรรม "${mission_title}" ให้ ${assignedList.length} คน`);
+          console.log(`📢 ส่งแจ้งเตือนกิจกรรม "${mission_title}" ให้ ${assignedList.length} คน (LINE OA)`);
         }
       }
 
-      // 🚗 ยิง API สร้างคำขอจองรถยนต์เบื้องหลังอัตโนมัติไปยังระบบ Car Booking
-      const finalMissionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
-      if (finalMissionData) {
-        createAutoCarBooking(finalMissionData, assignedList)
-          .then(async (carRes) => {
+      // 🚗 ยิง API จองรถในแบ็คกราวด์อย่างอิสระ (setImmediate) ไม่กระทบและไม่ต้องรอผลใดๆ
+      setImmediate(async () => {
+        try {
+          const finalMissionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
+          if (finalMissionData) {
+            const carRes = await createAutoCarBooking(finalMissionData, assignedList);
             if (carRes && carRes.success && carRes.booking_id) {
-              console.log(`✅ [Auto-Car-Booking] Created booking ${carRes.booking_id} for mission ${missionId}`);
+              console.log(`✅ [Auto-Car-Booking Background] Created booking ${carRes.booking_id} for mission ${missionId}`);
               await dbRun(
                 `UPDATE missions SET car_booking_id = ?, car_booking_status = ? WHERE id = ?;`,
                 [carRes.booking_id, carRes.status || 'PENDING', missionId]
               ).catch(e => console.error('Error saving car_booking_id:', e));
-            } else {
-              console.warn('⚠️ Auto-Car-Booking did not return success:', carRes);
             }
-          })
-          .catch(err => console.error('❌ Auto-Car-Booking error:', err));
-      }
+          }
+        } catch (err) {
+          console.error('❌ Background Auto-Car-Booking error:', err);
+        }
+      });
     } catch (notificationError) {
       console.error(
-        '❌ เกิดข้อผิดพลาดตอนส่งแจ้งเตือน/จองรถ:',
+        '❌ เกิดข้อผิดพลาดตอนส่งแจ้งเตือน:',
         notificationError
       );
     }
