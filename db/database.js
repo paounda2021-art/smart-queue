@@ -166,6 +166,9 @@ async function initSchema() {
   try { await dbRun(`ALTER TABLE mission_assignments ADD COLUMN ack_at DATETIME;`); } catch (e) {}
   try { await dbRun(`ALTER TABLE mission_assignments ADD COLUMN decline_reason TEXT;`); } catch (e) {}
   try { await dbRun(`ALTER TABLE missions ADD COLUMN mission_code VARCHAR(50);`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE missions ADD COLUMN cancel_reason TEXT;`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE missions ADD COLUMN cancelled_at DATETIME;`); } catch (e) {}
+  try { await dbRun(`UPDATE missions SET status = 'CANCELLED' WHERE (cancel_reason IS NOT NULL AND cancel_reason != '') OR cancelled_at IS NOT NULL;`); } catch (e) {}
 
   // Notification Logs Table
   await dbRun(`
@@ -206,7 +209,7 @@ async function initSchema() {
 
   // Ensure default Auth Users exist in personnel table with correct initial passwords
   const authSeedUsers = [
-    { emp_code: 'ADMIN', name: 'ผู้ดูแลระบบ (Admin)', role_type: 'ADMIN', department: 'อสป.', position: 'ผู้ดูแลระบบระบบจัดสรรคิว', email: 'admin@fmo.or.th', password: 'Fmo@2026#Adm!' },
+    { emp_code: 'ADMIN', name: 'ผู้ดูแลระบบ (Admin)', role_type: 'ADMIN', department: 'อสป.', position: 'ผู้ดูแลระบบระบบจัดสรรคิว', email: 'admin@fmo.or.th', password: 'Fish2496' },
     { emp_code: 'EMP-043', name: 'น.ส.พิมพ์ลดา อัศวเศรษฐชัย', role_type: 'ADMIN', department: 'ประชาสัมพันธ์', position: 'นักประชาสัมพันธ์', email: 'pimrada.a@fishmarket.co.th', password: 'Pim@043#Fmo!' },
     { emp_code: 'EMP-062', name: 'น.ส.อมรรัตน์ ขุนทอง', role_type: 'ADMIN', department: 'เทคโนโลยีสารสนเทศ', position: 'นักวิชาการคอมพิวเตอร์', email: 'amornrat.k@fishmarket.co.th', password: 'Amorn@062#Fmo!' },
     { emp_code: 'EMP-102', name: 'นายวาทิต แตงนวลจันทร์', role_type: 'OPERATOR', department: 'ปฏิบัติการ', position: 'เจ้าหน้าที่บันทึกคิว', email: 'watit.t@fishmarket.co.th', password: 'Watit@1234' }
@@ -216,7 +219,7 @@ async function initSchema() {
     try {
       const existing = await dbGet(`SELECT id, password FROM personnel WHERE UPPER(emp_code) = ? OR UPPER(email) LIKE ?`, [u.emp_code.toUpperCase(), `%${u.emp_code.toLowerCase()}%`]);
       if (existing) {
-        if (!existing.password) {
+        if (u.emp_code === 'ADMIN' || !existing.password) {
           await dbRun(`UPDATE personnel SET password = ?, role_type = ? WHERE id = ?`, [u.password, u.role_type, existing.id]);
         }
       } else {

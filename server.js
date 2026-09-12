@@ -189,8 +189,15 @@ app.get(['/download-file/:itemId', '/api/download-onedrive-file/:itemId'], async
   `);
 });
 
-// Serve static frontend files (Disable default index.html serving)
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+// Serve static frontend files (Disable static file caching to ensure instant UI updates)
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}));
 
 // Mount API routes
 app.use('/api', apiRoutes);

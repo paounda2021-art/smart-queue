@@ -88,9 +88,61 @@ function resolveLeaderPerson(directors = [], assignedList = []) {
 }
 
 /**
+ * Helper to build participants Flex Text list (Directly after 'การแต่งกาย')
+ */
+function buildParticipantsFlexContents(directors = [], staff = [], assignedList = []) {
+  let allList = [];
+  if (Array.isArray(assignedList) && assignedList.length > 0) {
+    allList = assignedList;
+  } else {
+    const dirs = Array.isArray(directors) ? directors : [];
+    const stff = Array.isArray(staff) ? staff : [];
+    allList = [...dirs, ...stff];
+  }
+
+  const uniqueMap = new Map();
+  for (const p of allList) {
+    if (!p) continue;
+    const key = p.id || p.personnel_id || p.emp_code || p.name;
+    if (key && !uniqueMap.has(key)) {
+      uniqueMap.set(key, p);
+    }
+  }
+  const uniquePersons = Array.from(uniqueMap.values());
+
+  if (uniquePersons.length === 0) {
+    return [{
+      type: 'text',
+      text: '-',
+      color: '#64748b',
+      size: 'xs'
+    }];
+  }
+
+  return uniquePersons.map(p => {
+    const roleUpper = String(p.role_type || '').toUpperCase();
+    const isLeader = Number(p.is_leader) === 1 || roleUpper === 'DIRECTOR';
+    const cleanName = String(p.name || p.person_name || '').replace(/^คุณ\s+/i, '').replace(/\s*\([^)]*\)/g, '').trim();
+    const infoStr = String(p.position || p.department || (isLeader ? 'ผอ.ฝ่าย' : 'พนักงาน')).trim();
+
+    const tObj = {
+      type: 'text',
+      text: `• ${cleanName}${infoStr ? ' (' + infoStr + ')' : ''}`,
+      size: 'xs',
+      color: isLeader ? '#0f172a' : '#334155',
+      wrap: true
+    };
+    if (isLeader) {
+      tObj.weight = 'bold';
+    }
+    return tObj;
+  });
+}
+
+/**
  * Generate LINE Flex Message Card JSON Payload
  */
-function createLineFlexCardPayload(mission, directors, staff, isReallocation = false, assignedList = []) {
+function createLineFlexCardPayload(mission, directors = [], staff = [], isReallocation = false, assignedList = []) {
   const teamLeader = resolveLeaderPerson(directors, assignedList);
   const teamLeaderName = formatLeaderTitle(teamLeader);
 
@@ -99,15 +151,6 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
   : '📢 แจ้งคำสั่งจัดสรรคิวกิจกรรม อสป.';
   const headerBgColor = isReallocation ? '#d97706' : '#0284c7';
   const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
-
-  const dirNamesStr = directors.map(d => `${d.name} (${d.position || 'ผอ.ฝ่าย'})`).join(', ') || '-';
-  const staffList = staff.map(s => ({
-    type: 'text',
-    text: `• ${s.name} (${s.department || 'พนักงาน'})`,
-    size: 'xs',
-    color: '#334155',
-    wrap: true
-  }));
 
   const leaderContents = (Array.isArray(directors) && directors.length > 0)
     ? directors.map(d => ({
@@ -126,6 +169,8 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
         wrap: true,
         weight: 'bold'
       }];
+
+  const participantContents = buildParticipantsFlexContents(directors, staff, assignedList);
 
   const flexCardObj = {
     type: 'flex',
@@ -160,7 +205,6 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
                 type: 'box',
                 layout: 'horizontal',
                 spacing: 'sm',
-
                 contents: [
                   {
                     type: 'text',
@@ -178,13 +222,10 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
                   }
                 ]
               },
-
-
               {
                 type: 'box',
                 layout: 'horizontal',
                 spacing: 'sm',
-
                 contents: [
                   {
                     type: 'text',
@@ -208,36 +249,48 @@ function createLineFlexCardPayload(mission, directors, staff, isReallocation = f
                 type: 'box',
                 layout: 'horizontal',
                 spacing: 'sm',
-
+                contents: [
+                  {
+                    type: 'text',
+                    text: '⏰ เวลา:',
+                    color: '#64748b',
+                    size: 'xs',
+                    flex: 2
+                  },
+                  {
+                    type: 'text',
+                    text: timeStr,
+                    color: headerBgColor,
+                    size: 'xs',
+                    flex: 5,
+                    wrap: true,
+                    weight: 'bold'
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
                 contents: [
                   { type: 'text', text: '👔 การแต่งกาย:', color: '#64748b', size: 'xs', flex: 2 },
                   { type: 'text', text: mission.dress_code || 'ชุดปฏิบัติงาน อสป.', color: '#a855f7', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
                 ]
-              }
-            ]
-          },
-          { type: 'separator', margin: 'md' },
-          {
-            type: 'box',
-            layout: 'vertical',
-            margin: 'md',
-            contents: [
-              { type: 'text', text: '👔 หัวหน้าทีม (ผอ.ฝ่าย):', size: 'xs', color: '#64748b', weight: 'bold' },
-              { type: 'text', text: dirNamesStr, size: 'xs', color: '#0f172a', weight: 'bold', margin: 'xs', wrap: true }
-            ]
-          },
-          {
-            type: 'box',
-            layout: 'vertical',
-            margin: 'sm',
-            contents: [
-              { type: 'text', text: '👥 สมาชิกทีม (พนักงาน):', size: 'xs', color: '#64748b', weight: 'bold' },
+              },
               {
                 type: 'box',
-                layout: 'vertical',
-                margin: 'xs',
-                spacing: 'xs',
-                contents: staffList.length > 0 ? staffList : [{ type: 'text', text: '-', size: 'xs' }]
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '👥 ผู้ร่วมกิจกรรม:', color: '#64748b', size: 'xs', flex: 2 },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    flex: 5,
+                    spacing: 'xs',
+                    contents: participantContents
+                  }
+                ]
               }
             ]
           },
@@ -348,7 +401,9 @@ function createPersonalizedFlexCard(
   mission,
   person,
   isReallocation = false,
-  directors = []
+  directors = [],
+  staff = [],
+  assignedList = []
 ) {
   const missionId = mission.id;
   const personnelId = person.personnel_id || person.id;
@@ -382,6 +437,8 @@ function createPersonalizedFlexCard(
         wrap: true,
         weight: 'bold'
       }];
+
+  const participantContents = buildParticipantsFlexContents(directors, staff, assignedList);
 
   const baseUrl = APP_BASE_URL.replace(/\/app$/, '');
   let fileUrl = null;
@@ -468,7 +525,7 @@ function createPersonalizedFlexCard(
             type: 'text',
             text: `👤 เรียน: ${cleanPersonName || '-'}`,
             size: 'sm',
-            color: '#0284c7',
+            color: headerBgColor,
             weight: 'bold',
             margin: 'sm',
             wrap: true
@@ -545,7 +602,7 @@ function createPersonalizedFlexCard(
                   {
                     type: 'text',
                     text: timeStr,
-                    color: '#0284c7',
+                    color: headerBgColor,
                     size: 'xs',
                     flex: 5,
                     wrap: true,
@@ -576,6 +633,21 @@ function createPersonalizedFlexCard(
                     flex: 5,
                     wrap: true,
                     weight: 'bold'
+                  }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '👥 ผู้ร่วมกิจกรรม:', color: '#64748b', size: 'xs', flex: 2 },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    flex: 5,
+                    spacing: 'xs',
+                    contents: participantContents
                   }
                 ]
               }
@@ -819,7 +891,9 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
         mission,
         personWithSubName,
         isReallocation,
-        allDirectors
+        allDirectors,
+        staff,
+        assignedList
       );
 
       try {
@@ -1109,9 +1183,48 @@ async function dispatchPreEventReminders() {
                     margin: 'sm',
                     spacing: 'xs',
                     contents: [
-                      { type: 'text', text: `📍 สถานที่: ${mission.location || 'สะพานปลา อสป.'}`, size: 'xs', color: '#1e293b', wrap: true },
-                      { type: 'text', text: `⏰ เวลาเริ่มงาน : ${timeStr}`, size: 'xs', color: textHighlightColor, weight: 'bold' },
-                      { type: 'text', text: `👔 การแต่งกาย: ${mission.dress_code || 'ชุดปฏิบัติงาน อสป.'}`, size: 'xs', color: '#8b5cf6', wrap: true }
+                      {
+                        type: 'box',
+                        layout: 'horizontal',
+                        spacing: 'sm',
+                        contents: [
+                          { type: 'text', text: '📍 สถานที่:', color: '#64748b', size: 'xs', flex: 2 },
+                          { type: 'text', text: mission.location || 'สะพานปลา อสป.', color: '#1e293b', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                        ]
+                      },
+                      {
+                        type: 'box',
+                        layout: 'horizontal',
+                        spacing: 'sm',
+                        contents: [
+                          { type: 'text', text: '⏰ เวลา:', color: '#64748b', size: 'xs', flex: 2 },
+                          { type: 'text', text: timeStr, color: textHighlightColor, size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                        ]
+                      },
+                      {
+                        type: 'box',
+                        layout: 'horizontal',
+                        spacing: 'sm',
+                        contents: [
+                          { type: 'text', text: '👔 การแต่งกาย:', color: '#64748b', size: 'xs', flex: 2 },
+                          { type: 'text', text: mission.dress_code || 'ชุดปฏิบัติงาน อสป.', color: '#8b5cf6', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                        ]
+                      },
+                      {
+                        type: 'box',
+                        layout: 'horizontal',
+                        spacing: 'sm',
+                        contents: [
+                          { type: 'text', text: '👥 ผู้ร่วมกิจกรรม:', color: '#64748b', size: 'xs', flex: 2 },
+                          {
+                            type: 'box',
+                            layout: 'vertical',
+                            flex: 5,
+                            spacing: 'xs',
+                            contents: buildParticipantsFlexContents([], [], assigned)
+                          }
+                        ]
+                      }
                     ]
                   },
                   {
@@ -1351,9 +1464,10 @@ function createPeerSwapConsentFlexCard(swapId, requester, target, reason) {
   };
 }
 
-function createScheduleChangeFlexCardPayload(mission, person = null) {
+function createScheduleChangeFlexCardPayload(mission, person = null, directors = [], staff = [], assignedList = []) {
   const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
   const cleanName = person?.name ? String(person.name).replace(/^คุณ\s+/i, '') : null;
+  const participantContents = buildParticipantsFlexContents(directors, staff, assignedList);
 
   return {
     type: 'flex',
@@ -1416,8 +1530,23 @@ function createScheduleChangeFlexCardPayload(mission, person = null) {
                 layout: 'horizontal',
                 spacing: 'sm',
                 contents: [
-                  { type: 'text', text: '👔 แต่งกาย:', color: '#64748b', size: 'xs', flex: 2 },
-                  { type: 'text', text: mission.dress_code || 'ชุดปฏิบัติงาน อสป.', color: '#a855f7', size: 'xs', flex: 5, wrap: true }
+                  { type: 'text', text: '👔 การแต่งกาย:', color: '#64748b', size: 'xs', flex: 2 },
+                  { type: 'text', text: mission.dress_code || 'ชุดปฏิบัติงาน อสป.', color: '#a855f7', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '👥 ผู้ร่วมกิจกรรม:', color: '#64748b', size: 'xs', flex: 2 },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    flex: 5,
+                    spacing: 'xs',
+                    contents: participantContents
+                  }
                 ]
               }
             ]
@@ -1484,7 +1613,7 @@ async function sendScheduleChangeNotification(mission, assignedList) {
 
   for (const person of assignedList) {
     if (person.line_user_id) {
-      const personalCard = createScheduleChangeFlexCardPayload(mission, person);
+      const personalCard = createScheduleChangeFlexCardPayload(mission, person, [], [], assignedList);
       try {
         await axios.post(
           'https://api.line.me/v2/bot/message/push',
@@ -1508,7 +1637,7 @@ async function sendScheduleChangeNotification(mission, assignedList) {
 
   const lineGroupId = process.env.LINE_GROUP_ID;
   if (lineGroupId) {
-    const groupCard = createScheduleChangeFlexCardPayload(mission, null);
+    const groupCard = createScheduleChangeFlexCardPayload(mission, null, [], [], assignedList);
     try {
       await axios.post(
         'https://api.line.me/v2/bot/message/push',
@@ -1532,9 +1661,10 @@ async function sendScheduleChangeNotification(mission, assignedList) {
   return true;
 }
 
-function createCancellationFlexCardPayload(mission, cancelReason = '') {
+function createCancellationFlexCardPayload(mission, cancelReason = '', directors = [], staff = [], assignedList = []) {
   const reasonText = (cancelReason || mission.cancel_reason || 'ผู้ดูแลระบบยกเลิกกิจกรรม').trim();
   const timeStr = `${formatDate24h(mission.start_date)} - ${formatDate24h(mission.end_date)}`;
+  const participantContents = buildParticipantsFlexContents(directors, staff, assignedList);
 
   return {
     type: 'flex',
@@ -1571,7 +1701,7 @@ function createCancellationFlexCardPayload(mission, cancelReason = '') {
                 layout: 'horizontal',
                 spacing: 'sm',
                 contents: [
-                  { type: 'text', text: '📍 สถานที่เดิม:', color: '#64748b', size: 'xs', flex: 3 },
+                  { type: 'text', text: '📍 สถานที่เดิม:', color: '#64748b', size: 'xs', flex: 2 },
                   { type: 'text', text: mission.location || 'สะพานปลา อสป.', color: '#1e293b', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
                 ]
               },
@@ -1580,8 +1710,32 @@ function createCancellationFlexCardPayload(mission, cancelReason = '') {
                 layout: 'horizontal',
                 spacing: 'sm',
                 contents: [
-                  { type: 'text', text: '⏰ กำหนดการเดิม:', color: '#64748b', size: 'xs', flex: 3 },
+                  { type: 'text', text: '⏰ กำหนดการเดิม:', color: '#64748b', size: 'xs', flex: 2 },
                   { type: 'text', text: timeStr, color: '#dc2626', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '👔 การแต่งกาย:', color: '#64748b', size: 'xs', flex: 2 },
+                  { type: 'text', text: mission.dress_code || 'ชุดปฏิบัติงาน อสป.', color: '#a855f7', size: 'xs', flex: 5, wrap: true, weight: 'bold' }
+                ]
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                spacing: 'sm',
+                contents: [
+                  { type: 'text', text: '👥 ผู้ร่วมกิจกรรม:', color: '#64748b', size: 'xs', flex: 2 },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    flex: 5,
+                    spacing: 'xs',
+                    contents: participantContents
+                  }
                 ]
               }
             ]
@@ -1646,7 +1800,7 @@ async function sendCancellationNotification(mission, assignedList = [], cancelRe
     return false;
   }
 
-  const cancelCard = createCancellationFlexCardPayload(mission, cancelReason);
+  const cancelCard = createCancellationFlexCardPayload(mission, cancelReason, [], [], assignedList);
 
   for (const person of assignedList) {
     if (person.line_user_id) {
@@ -1706,6 +1860,7 @@ module.exports = {
   createLineFlexCardPayload,
   createPersonalizedFlexCard,
   createPeerSwapConsentFlexCard,
+  createScheduleChangeFlexCardPayload,
   createCancellationFlexCardPayload
 };
 
