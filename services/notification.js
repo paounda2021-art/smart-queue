@@ -1078,11 +1078,11 @@ async function dispatchPreEventReminders() {
       WHERE m.start_date > datetime('now', '+7 hours')
         AND m.start_date <= datetime('now', '+7 hours', '+30 hours')
         AND m.created_at <= datetime('now', '+7 hours', '-3 minutes')
-        AND m.status IN ('SCHEDULED', 'SUCCESS')
+        AND m.status IN ('SCHEDULED', 'SUCCESS', 'ON_PROCESS')
         AND EXISTS (
-          SELECT 1 FROM notification_logs nl 
-          WHERE nl.mission_id = m.id 
-            AND (nl.subject_title LIKE '%คำสั่งจัดสรร%' OR nl.subject_title LIKE '%แจ้งเตือนจัดสรร%')
+          SELECT 1 FROM mission_assignments ma 
+          WHERE ma.mission_id = m.id 
+            AND ma.assignment_status IN ('JOINED', 'SUBSTITUTED')
         )
     `);
 
