@@ -1123,16 +1123,8 @@ async function dispatchPreEventReminders() {
       let textHighlightColor = '#ca8a04';
       let footerNoticeText = '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที';
 
-      if (diffMinutes >= 0 && diffMinutes <= 45) {
-        // เงื่อนไขที่ 2: เตือนล่วงหน้า 30 นาที
-        isUrgent30m = true;
-        reminderTag = '🚨 เตือนความจำใกล้ถึงเวลา (อีก 30 นาที)';
-        headerBgColor = '#d97706';
-        headerSubColor = '#fef3c7';
-        textHighlightColor = '#b45309';
-        footerNoticeText = '🚨 อีกประมาณ 30 นาทีจะถึงเวลาเริ่มปฏิบัติงาน! กรุณาเตรียมพร้อมและเดินทางถึงสถานที่ปฏิบัติงานทันทีค่ะ';
-      } else if (diffMinutes >= 12 * 60 && diffMinutes <= 28 * 60) {
-        // เงื่อนไขที่ 1: เตือนล่วงหน้า 1 วัน
+      if (diffMinutes >= 12 * 60 && diffMinutes <= 28 * 60) {
+        // เงื่อนไข: เตือนล่วงหน้า 1 วัน เท่านั้น
         reminderTag = '🔔 เตือนความจำล่วงหน้า (1 วัน)';
         headerBgColor = '#eab308';
         headerSubColor = '#fefce8';
@@ -1140,7 +1132,7 @@ async function dispatchPreEventReminders() {
         footerNoticeText = '⏱️ กรุณามาถึงสถานที่ปฏิบัติงานก่อนเวลาเริ่มอย่างน้อย 30 นาที';
       }
 
-      // หากไม่อยู่ในเงื่อนไขการเตือน 1 วัน หรือ 30 นาที ให้ข้ามไป
+      // หากไม่อยู่ในเงื่อนไขการเตือน 1 วัน ให้ข้ามไป
       if (!reminderTag) continue;
 
       for (const person of assigned) {

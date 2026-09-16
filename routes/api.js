@@ -792,6 +792,80 @@ router.post('/line-webhook', async (req, res) => {
         const replyToken = event.replyToken;
 
         // =============================================================
+        // 0. FOLLOW EVENT (เมื่อผู้ใช้เพิ่มเพื่อน LINE OA ใหม่)
+        // =============================================================
+        if (event.type === 'follow') {
+          console.log('[DEBUG] 👤 LINE Follow Event from:', lineUserId);
+          let cleanName = '';
+          if (lineUserId) {
+            const p = await dbGet(`SELECT name FROM personnel WHERE line_user_id = ?;`, [lineUserId]);
+            if (p && p.name) {
+              cleanName = String(p.name).replace(/^คุณ\s+/i, '');
+            }
+          }
+
+          const welcomeCard = {
+            type: 'flex',
+            altText: '🎉 ยินดีต้อนรับสู่ LINE PR Smart Queue (ช่องทางแจ้งคิว อสป.)',
+            contents: {
+              type: 'bubble',
+              size: 'mega',
+              header: {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#0284c7',
+                paddingAll: '16px',
+                contents: [
+                  { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+                  { type: 'text', text: '🎉 ยินดีต้อนรับสู่ช่องทางแจ้งคิวใหม่!', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
+                ]
+              },
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '16px',
+                spacing: 'md',
+                contents: [
+                  { type: 'text', text: `👤 เรียน: ${cleanName || 'บุคลากร อสป.'}`, weight: 'bold', size: 'md', color: '#0f172a', wrap: true },
+                  { type: 'text', text: 'ขอบคุณที่กดเพิ่มเพื่อนเข้ามายังบัญชี LINE "PR Smart Queue" ค่ะ 🙏', size: 'xs', color: '#334155', wrap: true },
+                  {
+                    type: 'box',
+                    layout: 'vertical',
+                    backgroundColor: '#f0f9ff',
+                    borderColor: '#bae6fd',
+                    borderWidth: '1px',
+                    paddingAll: '12px',
+                    cornerRadius: '8px',
+                    margin: 'md',
+                    contents: [
+                      { type: 'text', text: '✨ ระบบได้เชื่อมต่อบัญชีของท่านเรียบร้อยแล้ว:', size: 'xs', color: '#0284c7', weight: 'bold' },
+                      { type: 'text', text: '• รับการ์ดแจ้งเตือนคิวกิจกรรม อสป. โดยตรง\n• รับการแจ้งเตือนล่วงหน้า 1 วัน และ 30 นาทีก่อนเริ่มงาน\n• กดรับทราบ หรือแจ้งติดภารกิจได้ทันทีในแชทนี้', size: 'xs', color: '#334155', wrap: true, margin: 'xs' }
+                    ]
+                  }
+                ]
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '12px',
+                contents: [
+                  {
+                    type: 'button',
+                    style: 'primary',
+                    color: '#0284c7',
+                    height: 'sm',
+                    action: { type: 'uri', label: '🌐 เปิดดูระบบ FMO Smart Queue', uri: process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app' }
+                  }
+                ]
+              }
+            }
+          };
+
+          await replyLine(replyToken, [welcomeCard]);
+          continue;
+        }
+
+        // =============================================================
         // A. POSTBACK: ACK / BUSY
         // =============================================================
         if (event.type === 'postback') {
