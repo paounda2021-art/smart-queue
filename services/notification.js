@@ -1879,10 +1879,128 @@ async function sendCancellationNotification(mission, assignedList = [], cancelRe
   return true;
 }
 
+/**
+ * ส่งการ์ดแจ้งสลับช่องทาง LINE OA ใหม่ ให้แก่บุคลากรทุกคนในระบบที่มี LINE User ID (อัตโนมัติ 8.00 น.)
+ */
+async function dispatchMigrationCardsToAllPersonnel() {
+  try {
+    const { dbAll, dbRun } = require('../db/database');
+    const oldToken = process.env.LINE_CHANNEL_ACCESS_TOKEN_OLD;
+    if (!oldToken) {
+      console.error('❌ ไม่พบ LINE_CHANNEL_ACCESS_TOKEN_OLD ใน .env สำหรับส่งการ์ดเชิญ');
+      return { success: false, error: 'Missing old token' };
+    }
+
+    const personnelList = await dbAll(`
+      SELECT id, emp_code, name, line_user_id
+      FROM personnel
+      WHERE line_user_id IS NOT NULL AND line_user_id LIKE 'U%'
+    `);
+
+    if (personnelList.length === 0) {
+      console.log('⚠️ ไม่พบบุคลากรที่มี LINE User ID สำหรับส่งการ์ดเชิญ');
+      return { success: true, count: 0 };
+    }
+
+    let successCount = 0;
+    for (const p of personnelList) {
+      const cleanName = String(p.name || '').replace(/^คุณ\s+/i, '');
+      const inviteCard = {
+        type: 'flex',
+        altText: '📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรม อสป. ใหม่',
+        contents: {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#0284c7',
+            paddingAll: '16px',
+            contents: [
+              { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+              { type: 'text', text: '📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรมใหม่', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '16px',
+            spacing: 'md',
+            contents: [
+              { type: 'text', text: `👤 เรียน: ${cleanName}`, weight: 'bold', size: 'sm', color: '#0f172a' },
+              { type: 'text', text: 'ระบบได้ทำการแยกช่องทางแจ้งเตือนคิวกิจกรรม อสป. ออกไปยัง LINE Official Account บัญชีใหม่เรียบร้อยแล้วค่ะ', size: 'xs', color: '#334155', wrap: true },
+              {
+                type: 'box',
+                layout: 'vertical',
+                backgroundColor: '#f0f9ff',
+                borderColor: '#bae6fd',
+                borderWidth: '1px',
+                paddingAll: '12px',
+                cornerRadius: '8px',
+                margin: 'md',
+                contents: [
+                  { type: 'text', text: '📌 บัญชีใหม่: PR Smart Queue (@278tllzj)', size: 'xs', color: '#0284c7', weight: 'bold' },
+                  { type: 'text', text: 'กรุณากดปุ่มสีเขียวด้านล่าง 1 ครั้ง เพื่อเปิดรับการแจ้งเตือนคิวและเตือนล่วงหน้า 1 วันในช่องทางใหม่ค่ะ', size: 'xxs', color: '#475569', wrap: true, margin: 'xs' }
+                ]
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '12px',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#10b981',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: '🟢 กดรับการแจ้งเตือนคิวช่องใหม่',
+                  uri: 'https://line.me/R/ti/p/%40278tllzj'
+                }
+              }
+            ]
+          }
+        }
+      };
+
+      try {
+        await axios.post('https://api.line.me/v2/bot/message/push', {
+          to: p.line_user_id,
+          messages: [inviteCard]
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + oldToken
+          }
+        });
+
+        await dbRun(`
+          INSERT INTO notification_logs (mission_id, personnel_id, channel, recipient, subject_title, content_body, status)
+          VALUES (NULL, ?, 'LINE_OLD_OA', ?, '📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรมใหม่ (อัตโนมัติ 8.00 น.)', 'ส่งการ์ดเชิญสลับช่องทาง LINE OA ใหม่สำเร็จ', 'SENT')
+        `, [p.id, p.line_user_id]);
+
+        successCount++;
+      } catch (err) {
+        console.error(`❌ ส่งการ์ดเชิญสลับ LINE OA ให้ ${p.name} ล้มเหลว:`, err.response?.data || err.message);
+      }
+    }
+
+    console.log(`[AUTOMATED CRON] ✅ Dispatched migration cards to ${successCount} personnel`);
+    return { success: true, count: successCount };
+  } catch (err) {
+    console.error('Error dispatching migration cards:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendMissionNotification,
   sendUpcomingQueueNotice,
   dispatchPreEventReminders,
+  dispatchMigrationCardsToAllPersonnel,
   sendScheduleChangeNotification,
   sendCancellationNotification,
   formatDate24h,

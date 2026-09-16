@@ -243,8 +243,8 @@ initSchema().then(() => {
     console.log(`🌐 Open Web Browser at: http://localhost:${PORT}`);
     console.log(`====================================================`);
 
-    // 🔔 Start Automated Pre-Event Reminder Background Task (Every 5 mins)
-    const { dispatchPreEventReminders } = require('./services/notification');
+    // 🔔 Start Automated Pre-Event Reminder & Scheduled Migration Broadcast (Every 5 mins)
+    const { dispatchPreEventReminders, dispatchMigrationCardsToAllPersonnel } = require('./services/notification');
     const runReminderCheck = async () => {
       try {
         const result = await dispatchPreEventReminders();
@@ -253,6 +253,32 @@ initSchema().then(() => {
         }
       } catch (err) {
         console.error('[AUTOMATED CRON] Error in auto pre-event reminder:', err.message);
+      }
+
+      // ⏰ Scheduled Migration Card Broadcast at 08:00 AM (Auto-run on Server)
+      try {
+        const { dbGet } = require('./db/database');
+        const now = new Date();
+        const thaiTime = new Date(now.getTime() + (7 * 3600 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+        const thaiYear = thaiTime.getFullYear();
+        const thaiMonth = thaiTime.getMonth() + 1;
+        const thaiDate = thaiTime.getDate();
+        const thaiHour = thaiTime.getHours();
+
+        // Trigger at 08:00 AM starting Sep 17, 2026 onwards if not dispatched yet
+        if (thaiYear >= 2026 && thaiMonth >= 9 && (thaiDate >= 17 || thaiMonth > 9)) {
+          if (thaiHour >= 8) {
+            const alreadyDispatched = await dbGet(
+              `SELECT id FROM notification_logs WHERE subject_title LIKE '%📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรมใหม่ (อัตโนมัติ 8.00 น.)%'`
+            );
+            if (!alreadyDispatched) {
+              console.log('[AUTOMATED CRON] 🚀 08:00 AM Reached! Dispatching Migration Cards to all personnel automatically...');
+              await dispatchMigrationCardsToAllPersonnel();
+            }
+          }
+        }
+      } catch (schedErr) {
+        console.error('[AUTOMATED CRON] Error in scheduled migration broadcast:', schedErr.message);
       }
     };
     runReminderCheck();

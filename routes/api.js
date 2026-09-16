@@ -4814,4 +4814,15 @@ router.all('/external/sync-car-status', async (req, res) => {
   }
 });
 
+// POST/GET /api/admin/trigger-migration-cards - สั่งส่งการ์ดเชิญสลับช่องทาง LINE OA ใหม่ให้บุคลากรทุกคนทันที (Manual Trigger)
+router.all('/admin/trigger-migration-cards', async (req, res) => {
+  try {
+    const { dispatchMigrationCardsToAllPersonnel } = require('../services/notification');
+    const result = await dispatchMigrationCardsToAllPersonnel();
+    res.json({ success: true, ...result, message: `ส่งการ์ดเชิญสลับช่องทาง LINE OA ใหม่สำเร็จ ${result.count || 0} ท่าน` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
