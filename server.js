@@ -259,11 +259,10 @@ initSchema().then(() => {
       try {
         const { dbGet } = require('./db/database');
         const now = new Date();
-        const thaiTime = new Date(now.getTime() + (7 * 3600 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-        const thaiYear = thaiTime.getFullYear();
-        const thaiMonth = thaiTime.getMonth() + 1;
-        const thaiDate = thaiTime.getDate();
-        const thaiHour = thaiTime.getHours();
+        const thaiYear = now.getFullYear();
+        const thaiMonth = now.getMonth() + 1;
+        const thaiDate = now.getDate();
+        const thaiHour = now.getHours();
 
         // Trigger at 08:00 AM starting Sep 17, 2026 onwards if not dispatched yet
         if (thaiYear >= 2026 && thaiMonth >= 9 && (thaiDate >= 17 || thaiMonth > 9)) {
