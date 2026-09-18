@@ -641,6 +641,15 @@ router.post('/line-webhook', async (req, res) => {
   // ตอบ LINE ทันที ป้องกัน webhook timeout
   res.status(200).send('OK');
 
+  // 💡 ตรวจสอบ destination ว่ามาจาก LINE OA ใหม่ (PR Smart Queue: Uf5b0c25bb2c34eb865b67428735c5601) เท่านั้น
+  // หากมาจาก LINE OA เดิม (องค์การสะพานปลา) ให้ข้าม ไม่ตอบกลับใดๆ
+  const destination = req.body?.destination;
+  const newBotUserId = 'Uf5b0c25bb2c34eb865b67428735c5601';
+  if (destination && destination !== newBotUserId) {
+    console.log(`[DEBUG] 🛑 Ignoring Webhook event from Old LINE OA (destination: ${destination})`);
+    return;
+  }
+
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
   async function replyLine(replyToken, messages) {
