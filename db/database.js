@@ -66,13 +66,13 @@ async function initSchema() {
 
   // Ensure missing columns exist
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN line_bound_new_oa INTEGER DEFAULT 0;`); } catch (e) {}
-  // Auto Migration: ตั้งค่า line_bound_new_oa = 1 ให้แก่บุคลากรที่เคยตอบรับคิว หรือมี LINE User ID ผูกไว้อยู่แล้ว
+  // Auto Migration: ตั้งค่า line_bound_new_oa = 1 เฉพาะแก่บุคลากรที่กดเพิ่มเพื่อน/ตอบรับคิวใน LINE OA ใหม่แล้ว (65 คน)
   try {
+    await dbRun(`UPDATE personnel SET line_bound_new_oa = 0;`);
     await dbRun(`
       UPDATE personnel
       SET line_bound_new_oa = 1
-      WHERE id IN (SELECT DISTINCT personnel_id FROM mission_assignments WHERE ack_status = 'ACKNOWLEDGED')
-         OR (line_user_id IS NOT NULL AND line_user_id LIKE 'U%');
+      WHERE id IN (SELECT DISTINCT personnel_id FROM mission_assignments WHERE ack_status = 'ACKNOWLEDGED');
     `);
   } catch (e) {}
 
