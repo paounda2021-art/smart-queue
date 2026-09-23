@@ -1032,16 +1032,12 @@ router.post('/line-webhook', async (req, res) => {
                     }
                   }
 
-                  const headerText = isAlreadyAck
-                    ? `ℹ️ ท่านได้กดรับทราบเข้าร่วมกิจกรรมแล้วก่อนหน้านี้ค่ะ ${cleanName}`
-                    : `✅ รับทราบแล้วค่ะ ${cleanName}`;
-
                   if (fileUrl) {
                     replyMessages = [
                       {
                         type: 'text',
                         text:
-                          `${headerText}\n\n` +
+                          `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
                           `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                           `📍 สถานที่: ${assignment.location || '-'}\n` +
                           `⏰ เวลา (24 ชม.): ${timeStr}\n` +
@@ -1055,13 +1051,13 @@ router.post('/line-webhook', async (req, res) => {
                     replyMessages = [{
                       type: 'text',
                       text:
-                        `${headerText}\n\n` +
+                        `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
                         `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                         `📍 สถานที่: ${assignment.location || '-'}\n` +
                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
                         `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
                         `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                        `ระบบได้บันทึกการตอบรับเข้าร่วมกิจกรรมเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
+                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
                     }];
                   }
                 }
