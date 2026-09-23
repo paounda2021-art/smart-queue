@@ -854,9 +854,54 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
     for (const person of assignedList) {
       if (!lineToken) continue;
 
-      const targetLineId = String(person.line_user_id || '').trim();
+      const personId = person.personnel_id || person.id;
+      let lineBoundNewOa = 0;
+      let dbLineUserId = person.line_user_id;
+      let empCode = person.emp_code;
+
+      if (personId) {
+        try {
+          const { dbGet } = require('../db/database');
+          const pRecord = await dbGet(`SELECT line_user_id, line_bound_new_oa, emp_code FROM personnel WHERE id = ?;`, [personId]);
+          if (pRecord) {
+            lineBoundNewOa = Number(pRecord.line_bound_new_oa || 0);
+            if (pRecord.line_user_id) dbLineUserId = pRecord.line_user_id;
+            if (pRecord.emp_code) empCode = pRecord.emp_code;
+          }
+        } catch (e) {
+          console.error('Error checking line_bound_new_oa:', e);
+        }
+      }
+
+      const targetLineId = String(dbLineUserId || '').trim();
       if (!targetLineId || !targetLineId.startsWith('U')) {
-        console.log(`ℹ️ ${person.name} (${person.emp_code || '-'}) ยังไม่ได้ผูก LINE User ID จึงข้ามการส่ง Push ส่วนตัวให้คนนี้`);
+        console.log(`ℹ️ ${person.name} (${empCode || '-'}) ยังไม่ได้ผูก LINE User ID จึงข้ามการส่ง Push ส่วนตัวให้คนนี้`);
+        continue;
+      }
+
+      // 💡 ถ้ายังไม่ได้กดปุ่มเขียวใน LINE OA ใหม่ (line_bound_new_oa !== 1) ให้ส่งการ์ดเชิญสลับช่องทางก่อน
+      if (lineBoundNewOa !== 1) {
+        console.log(`ℹ️ ${person.name} ยังไม่ได้กดรับช่องใหม่ (line_bound_new_oa = 0) -> ส่งการ์ดแจ้งปรับปรุงช่องทางใหม่`);
+        const oldToken = process.env.LINE_CHANNEL_ACCESS_TOKEN_OLD || process.env.LINE_CHANNEL_ACCESS_TOKEN;
+        const migrationCard = createMigrationFlexCardPayload({ ...person, emp_code: empCode }, mission);
+        try {
+          await axios.post('https://api.line.me/v2/bot/message/push', {
+            to: targetLineId,
+            messages: [migrationCard]
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${oldToken}`
+            }
+          });
+          console.log(`✅ ส่งการ์ดเชิญสลับ LINE OA ให้ ${person.name} สำเร็จ (รอผูกบัญชีเพื่อรับการ์ดภารกิจ)`);
+          await dbRun(`
+            INSERT INTO notification_logs (mission_id, personnel_id, channel, recipient, subject_title, content_body, status)
+            VALUES (?, ?, 'LINE_MIGRATION_PROMPT', ?, ?, 'ส่งการ์ดแจ้งปรับปรุงช่องทางใหม่ รอพนักงานกดผูกบัญชี', 'SENT')
+          `, [mission.id, personId, person.name, `${lineHeader} ${mission.mission_title}`]);
+        } catch (migErr) {
+          console.error(`❌ ส่งการ์ดเชิญสลับ LINE OA ให้ ${person.name} ล้มเหลว:`, migErr.response?.data || migErr.message);
+        }
         continue;
       }
 
@@ -897,7 +942,7 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
 
       try {
         await axios.post('https://api.line.me/v2/bot/message/push', {
-          to: person.line_user_id,
+          to: targetLineId,
           messages: [personalCard]
         }, {
           headers: {
@@ -1938,7 +1983,7 @@ async function dispatchMigrationCardsToAllPersonnel() {
                 cornerRadius: '8px',
                 margin: 'md',
                 contents: [
-                  { type: 'text', text: '📌 บัญชีใหม่: PR Smart Queue (@278tllzj)', size: 'xs', color: '#0284c7', weight: 'bold' },
+                  { type: 'text', text: '📌 บัญชีใหม่: PR Smart Queue (@076vysaa)', size: 'xs', color: '#0284c7', weight: 'bold' },
                   { type: 'text', text: 'กรุณากดปุ่มสีเขียวด้านล่าง 1 ครั้ง เพื่อเปิดรับการแจ้งเตือนคิวและเตือนล่วงหน้า 1 วันในช่องทางใหม่ค่ะ', size: 'xxs', color: '#475569', wrap: true, margin: 'xs' }
                 ]
               }
@@ -1957,7 +2002,7 @@ async function dispatchMigrationCardsToAllPersonnel() {
                 action: {
                   type: 'uri',
                   label: '🟢 กดรับการแจ้งเตือนคิวช่องใหม่',
-                  uri: 'https://line.me/R/ti/p/%40278tllzj'
+                  uri: 'https://line.me/R/ti/p/%40076vysaa'
                 }
               }
             ]
@@ -1995,6 +2040,73 @@ async function dispatchMigrationCardsToAllPersonnel() {
   }
 }
 
+function createMigrationFlexCardPayload(person, mission = null) {
+  const cleanName = String(person.name || person.person_name || '').replace(/^คุณ\s+/i, '');
+  const empCode = String(person.emp_code || '').trim();
+  const missionNotice = mission ? `\n\n📌 คุณมีคิวกิจกรรม อสป. รายการใหม่: "${mission.mission_title || 'กิจกรรมใหม่'}" เข้าระบบแล้ว!` : '';
+
+  return {
+    type: 'flex',
+    altText: '📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรม อสป. ใหม่',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#0284c7',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '🏛️ องค์การสะพานปลา (อสป.) • Smart Queue', color: '#e0f2fe', size: 'xxs', weight: 'bold' },
+          { type: 'text', text: '📢 แจ้งปรับปรุงช่องทางรับคิวกิจกรรมใหม่', color: '#ffffff', size: 'md', weight: 'bold', margin: 'xs', wrap: true }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        spacing: 'md',
+        contents: [
+          { type: 'text', text: `👤 เรียน: ${cleanName}`, weight: 'bold', size: 'sm', color: '#0f172a' },
+          { type: 'text', text: `ระบบได้ทำการแยกช่องทางแจ้งเตือนคิวกิจกรรม อสป. ออกไปยัง LINE Official Account บัญชีใหม่เรียบร้อยแล้วค่ะ${missionNotice}`, size: 'xs', color: '#334155', wrap: true },
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#f0f9ff',
+            borderColor: '#bae6fd',
+            borderWidth: '1px',
+            paddingAll: '12px',
+            cornerRadius: '8px',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '📌 บัญชีใหม่: PR Smart Queue (@076vysaa)', size: 'xs', color: '#0284c7', weight: 'bold' },
+              { type: 'text', text: 'กรุณากดปุ่มสีเขียวด้านล่าง 1 ครั้ง เพื่อผูกบัญชีและรับการ์ดรายละเอียดคิวกิจกรรมช่องทางใหม่ค่ะ', size: 'xxs', color: '#475569', wrap: true, margin: 'xs' }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '12px',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            color: '#10b981',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '🟢 กดรับการแจ้งเตือนคิวช่องใหม่',
+              uri: empCode ? `https://line.me/R/oaMessage/@076vysaa/?CONFIRM-${empCode}` : 'https://line.me/R/ti/p/%40076vysaa'
+            }
+          }
+        ]
+      }
+    }
+  };
+}
+
 module.exports = {
   sendMissionNotification,
   sendUpcomingQueueNotice,
@@ -2007,7 +2119,8 @@ module.exports = {
   createPersonalizedFlexCard,
   createPeerSwapConsentFlexCard,
   createScheduleChangeFlexCardPayload,
-  createCancellationFlexCardPayload
+  createCancellationFlexCardPayload,
+  createMigrationFlexCardPayload
 };
 
 

@@ -57,6 +57,7 @@ async function initSchema() {
       phone VARCHAR(20),
       email VARCHAR(100),
       line_user_id VARCHAR(100),
+      line_bound_new_oa INTEGER DEFAULT 0,
       password VARCHAR(255),
       menu_permissions TEXT,
       created_at DATETIME DEFAULT (datetime('now', '+7 hours'))
@@ -66,6 +67,7 @@ async function initSchema() {
   // Ensure missing columns exist
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN password VARCHAR(255);`); } catch (e) {}
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN menu_permissions TEXT;`); } catch (e) {}
+  try { await dbRun(`ALTER TABLE personnel ADD COLUMN line_bound_new_oa INTEGER DEFAULT 0;`); } catch (e) {}
 
   // Auto Migration: อัปเดต CHECK Constraint ให้รองรับ 'ADMIN' และ 'OPERATOR'
   try {

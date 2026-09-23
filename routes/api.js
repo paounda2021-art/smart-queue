@@ -819,6 +819,40 @@ router.post('/line-webhook', async (req, res) => {
     };
   }
 
+  async function dispatchPendingMissionsForUser(personnelId) {
+    try {
+      const person = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [personnelId]);
+      if (!person || !person.line_user_id) return;
+
+      const pendingAssignments = await dbAll(`
+        SELECT ma.*, m.id AS mission_id, m.mission_title
+        FROM mission_assignments ma
+        JOIN missions m ON m.id = ma.mission_id
+        WHERE ma.personnel_id = ?
+          AND (ma.ack_status = 'PENDING_ACK' OR ma.ack_status IS NULL OR ma.ack_status = '')
+          AND (ma.assignment_status = 'JOINED' OR ma.assignment_status IS NULL)
+          AND (m.status IS NULL OR m.status != 'CANCELLED');
+      `, [personnelId]);
+
+      if (!pendingAssignments || pendingAssignments.length === 0) {
+        console.log(`[INSTANT DISPATCH] ℹ️ ไม่พบภารกิจรอดำเนินการสำหรับ ${person.name}`);
+        return;
+      }
+
+      console.log(`[INSTANT DISPATCH] 🚀 พบภารกิจรอดำเนินการ ${pendingAssignments.length} รายการสำหรับ ${person.name} กำลังส่งการ์ดรายละเอียด...`);
+      const { sendMissionNotification } = require('../services/notification');
+
+      for (const assign of pendingAssignments) {
+        const mission = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [assign.mission_id]);
+        if (mission) {
+          await sendMissionNotification(mission, [person]);
+        }
+      }
+    } catch (e) {
+      console.error('[INSTANT DISPATCH] Error dispatching pending missions:', e.message);
+    }
+  }
+
   try {
     const events = Array.isArray(req.body?.events)
       ? req.body.events
@@ -836,9 +870,11 @@ router.post('/line-webhook', async (req, res) => {
           console.log('[DEBUG] 👤 LINE Follow Event from:', lineUserId);
           let cleanName = '';
           if (lineUserId) {
-            const p = await dbGet(`SELECT name FROM personnel WHERE line_user_id = ?;`, [lineUserId]);
-            if (p && p.name) {
-              cleanName = String(p.name).replace(/^คุณ\s+/i, '');
+            const p = await dbGet(`SELECT id, name FROM personnel WHERE line_user_id = ?;`, [lineUserId]);
+            if (p) {
+              await dbRun(`UPDATE personnel SET line_bound_new_oa = 1 WHERE id = ?;`, [p.id]);
+              if (p.name) cleanName = String(p.name).replace(/^คุณ\s+/i, '');
+              setTimeout(() => dispatchPendingMissionsForUser(p.id), 1000);
             }
           }
 
@@ -1024,9 +1060,10 @@ router.post('/line-webhook', async (req, res) => {
                     if (lineUserId && assignment.personnel_id) {
                       try {
                         await dbRun(
-                          `UPDATE personnel SET line_user_id = ? WHERE id = ? AND (line_user_id IS NULL OR line_user_id != ?);`,
-                          [lineUserId, assignment.personnel_id, lineUserId]
+                          `UPDATE personnel SET line_user_id = ?, line_bound_new_oa = 1 WHERE id = ?;`,
+                          [lineUserId, assignment.personnel_id]
                         );
+                        setTimeout(() => dispatchPendingMissionsForUser(assignment.personnel_id), 1000);
                       } catch (e) {
                         console.error('[LINE AUTO-BIND] Failed to auto-update line_user_id:', e.message);
                       }
@@ -1681,6 +1718,8 @@ router.post('/line-webhook', async (req, res) => {
               const currentLineUserId = String(lineUserId || '').trim();
 
               if (savedLineUserId === currentLineUserId && savedLineUserId && savedLineUserId.toLowerCase() !== 'email') {
+                await dbRun(`UPDATE personnel SET line_bound_new_oa = 1 WHERE id = ?;`, [person.id]);
+                setTimeout(() => dispatchPendingMissionsForUser(person.id), 1000);
                 messagesPayload = [{
                   type: 'text',
                   text:
@@ -1688,29 +1727,23 @@ router.post('/line-webhook', async (req, res) => {
                     `👤 ${person.name}\n\n` +
                     'สามารถใช้งานระบบ FMO Smart Queue ได้ตามปกติค่ะ'
                 }];
-              } else if (savedLineUserId && savedLineUserId.toLowerCase() !== 'email') {
-                messagesPayload = [{
-                  type: 'text',
-                  text:
-                    `⚠️ รหัส ${targetEmpCode} ถูกผูกกับบัญชี LINE อื่นแล้วค่ะ\n\n` +
-                    'หากต้องการเปลี่ยนบัญชี กรุณาติดต่อทีม IT'
-                }];
               } else {
+                // อัปเดต LINE User ID ใหม่และเปิดสถานะ line_bound_new_oa = 1
                 const bindResult = await dbRun(
                   `
                   UPDATE personnel
-                  SET line_user_id = ?
-                  WHERE id = ?
-                    AND (line_user_id IS NULL OR line_user_id = '' OR line_user_id = 'email');
+                  SET line_user_id = ?, line_bound_new_oa = 1
+                  WHERE id = ?;
                   `,
                   [currentLineUserId, person.id]
                 );
 
                 if (bindResult?.changes > 0) {
+                  setTimeout(() => dispatchPendingMissionsForUser(person.id), 1000);
                   messagesPayload = [{
                     type: 'text',
                     text:
-                      `🎉 ยืนยันการผูกบัญชีสำเร็จค่ะ\n\n` +
+                      `🎉 ยืนยันการผูกบัญชีช่องทางใหม่สำเร็จค่ะ\n\n` +
                       `👤 ${person.name}\n\n` +
                       'พร้อมรับการแจ้งเตือนคิวและภารกิจทาง LINE แล้วค่ะ'
                   }];
