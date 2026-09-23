@@ -654,8 +654,8 @@ router.post('/line-webhook', async (req, res) => {
 
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
-  async function replyLine(replyToken, messages) {
-    if (!replyToken || !Array.isArray(messages) || messages.length === 0) {
+  async function replyLine(replyToken, messages, targetUserId = null) {
+    if (!Array.isArray(messages) || messages.length === 0) {
       return false;
     }
 
@@ -664,30 +664,57 @@ router.post('/line-webhook', async (req, res) => {
       return false;
     }
 
-    try {
-      await axios.post(
-        'https://api.line.me/v2/bot/message/reply',
-        {
-          replyToken,
-          messages
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${lineToken}`
+    if (replyToken) {
+      try {
+        await axios.post(
+          'https://api.line.me/v2/bot/message/reply',
+          {
+            replyToken,
+            messages
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${lineToken}`
+            }
           }
-        }
-      );
+        );
 
-      console.log('✅ ส่งข้อความตอบกลับ LINE สำเร็จ');
-      return true;
-    } catch (error) {
-      console.error(
-        '❌ LINE Reply API Error:',
-        error.response?.data || error.message
-      );
-      return false;
+        console.log('✅ ส่งข้อความตอบกลับ LINE สำเร็จ (Reply API)');
+        return true;
+      } catch (error) {
+        console.warn(
+          '⚠️ LINE Reply API Error, Fallback to Push API:',
+          error.response?.data || error.message
+        );
+      }
     }
+
+    // 💡 Fallback to Push API if replyToken fails or is invalid
+    if (targetUserId && String(targetUserId).startsWith('U')) {
+      try {
+        await axios.post(
+          'https://api.line.me/v2/bot/message/push',
+          {
+            to: targetUserId,
+            messages
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${lineToken}`
+            }
+          }
+        );
+
+        console.log('✅ ส่งข้อความตอบกลับ LINE สำเร็จ (Push API Fallback)');
+        return true;
+      } catch (pushErr) {
+        console.error('❌ LINE Push Fallback Error:', pushErr.response?.data || pushErr.message);
+      }
+    }
+
+    return false;
   }
 
   function createPdpaCard(person, empCode) {
@@ -1612,7 +1639,7 @@ router.post('/line-webhook', async (req, res) => {
           }
 
 
-          await replyLine(replyToken, replyMessages);
+          await replyLine(replyToken, replyMessages, lineUserId);
           continue;
         }
 
