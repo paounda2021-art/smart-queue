@@ -816,8 +816,8 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
     // 💡 ส่งจริงเข้ากลุ่ม LINE ถ้ามีการตั้งค่า LINE_GROUP_ID + LINE_CHANNEL_ACCESS_TOKEN ไว้ใน .env
     // (เดิมโค้ดส่วนนี้แค่บันทึกลง log แต่ไม่เคยส่งเข้ากลุ่มจริงเลย เพราะไม่มี groupId ให้ยิงไป)
     const groupToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const lineGroupId = process.env.LINE_GROUP_ID;
-    let groupSendStatus = 'SENT'; // สถานะที่จะบันทึกลง notification_logs
+    const lineGroupId = process.env.ENABLE_LINE_GROUP_NOTIFY === 'true' ? process.env.LINE_GROUP_ID : null;
+    let groupSendStatus = 'SKIPPED'; // สถานะเริ่มต้นถ้าไม่เปิดใช้งานกลุ่ม LINE
 
     if (lineGroupId && groupToken) {
       try {
@@ -831,12 +831,11 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
           }
         });
         console.log('✅ ส่ง LINE เข้ากลุ่มสำเร็จ');
+        groupSendStatus = 'SENT';
       } catch (groupError) {
         console.error('❌ ส่ง LINE เข้ากลุ่มไม่สำเร็จ:', groupError.response?.data || groupError.message);
         groupSendStatus = 'FAILED';
       }
-    } else {
-      console.warn('⚠️ ไม่ได้ตั้งค่า LINE_GROUP_ID ใน .env ระบบจะบันทึก log ไว้เฉยๆ แต่ไม่ได้ส่งเข้ากลุ่ม LINE จริง');
     }
 
     // Log LINE Group Dispatch with full Flex Message Card JSON
@@ -1887,8 +1886,8 @@ async function dispatchMigrationCardsToAllPersonnel() {
     const { dbAll, dbRun } = require('../db/database');
     const oldToken = process.env.LINE_CHANNEL_ACCESS_TOKEN_OLD;
     if (!oldToken) {
-      console.error('❌ ไม่พบ LINE_CHANNEL_ACCESS_TOKEN_OLD ใน .env สำหรับส่งการ์ดเชิญ');
-      return { success: false, error: 'Missing old token' };
+      console.log('ℹ️ ข้ามการส่งการ์ดเชิญย้าย LINE OA เนื่องจากไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN_OLD');
+      return { success: true, count: 0 };
     }
 
     const personnelList = await dbAll(`

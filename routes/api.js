@@ -641,13 +641,15 @@ router.post('/line-webhook', async (req, res) => {
   // ตอบ LINE ทันที ป้องกัน webhook timeout
   res.status(200).send('OK');
 
-  // 💡 ตรวจสอบ destination ว่ามาจาก LINE OA ใหม่ (PR Smart Queue: Uf5b0c25bb2c34eb865b67428735c5601) เท่านั้น
-  // หากมาจาก LINE OA เดิม (องค์การสะพานปลา) ให้ข้าม ไม่ตอบกลับใดๆ
+  // 💡 ตรวจสอบ destination หากกำหนด LINE_BOT_USER_ID ใน .env ให้กรองตามนั้น หากไม่กำหนดให้รับประมวลผลทุก LINE OA
   const destination = req.body?.destination;
-  const newBotUserId = 'Uf5b0c25bb2c34eb865b67428735c5601';
-  if (destination && destination !== newBotUserId) {
-    console.log(`[DEBUG] 🛑 Ignoring Webhook event from Old LINE OA (destination: ${destination})`);
-    return;
+  const configuredBotUserId = process.env.LINE_BOT_USER_ID;
+  if (destination) {
+    console.log(`[DEBUG] 📩 Received Webhook event from LINE OA (destination: ${destination})`);
+    if (configuredBotUserId && destination !== configuredBotUserId) {
+      console.log(`[DEBUG] 🛑 Ignoring Webhook event (destination ${destination} does not match configured LINE_BOT_USER_ID ${configuredBotUserId})`);
+      return;
+    }
   }
 
   const lineToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
@@ -997,6 +999,17 @@ router.post('/line-webhook', async (req, res) => {
                     `,
                     [assignment.id]
                   );
+
+                  if (lineUserId && assignment.personnel_id) {
+                    try {
+                      await dbRun(
+                        `UPDATE personnel SET line_user_id = ? WHERE id = ? AND (line_user_id IS NULL OR line_user_id != ?);`,
+                        [lineUserId, assignment.personnel_id, lineUserId]
+                      );
+                    } catch (e) {
+                      console.error('[LINE AUTO-BIND] Failed to auto-update line_user_id:', e.message);
+                    }
+                  }
 
                   await checkAndUpdateMissionStatus(assignment.mission_id);
 
