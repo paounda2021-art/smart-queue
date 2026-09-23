@@ -65,9 +65,16 @@ async function initSchema() {
   `);
 
   // Ensure missing columns exist
-  try { await dbRun(`ALTER TABLE personnel ADD COLUMN password VARCHAR(255);`); } catch (e) {}
-  try { await dbRun(`ALTER TABLE personnel ADD COLUMN menu_permissions TEXT;`); } catch (e) {}
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN line_bound_new_oa INTEGER DEFAULT 0;`); } catch (e) {}
+  // Auto Migration: ตั้งค่า line_bound_new_oa = 1 ให้แก่บุคลากรที่เคยตอบรับคิว หรือมี LINE User ID ผูกไว้อยู่แล้ว
+  try {
+    await dbRun(`
+      UPDATE personnel
+      SET line_bound_new_oa = 1
+      WHERE id IN (SELECT DISTINCT personnel_id FROM mission_assignments WHERE ack_status = 'ACKNOWLEDGED')
+         OR (line_user_id IS NOT NULL AND line_user_id LIKE 'U%');
+    `);
+  } catch (e) {}
 
   // Auto Migration: อัปเดต CHECK Constraint ให้รองรับ 'ADMIN' และ 'OPERATOR'
   try {
