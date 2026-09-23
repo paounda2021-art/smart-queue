@@ -68,8 +68,6 @@ async function initSchema() {
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN password VARCHAR(255);`); } catch (e) {}
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN menu_permissions TEXT;`); } catch (e) {}
   try { await dbRun(`ALTER TABLE personnel ADD COLUMN line_bound_new_oa INTEGER DEFAULT 0;`); } catch (e) {}
-  // Auto Migration: ตั้งค่า line_bound_new_oa = 1 ให้บุคลากรที่มี LINE User ID เดิมอยู่แล้วในระบบ
-  try { await dbRun(`UPDATE personnel SET line_bound_new_oa = 1 WHERE line_user_id IS NOT NULL AND line_user_id LIKE 'U%';`); } catch (e) {}
 
   // Auto Migration: อัปเดต CHECK Constraint ให้รองรับ 'ADMIN' และ 'OPERATOR'
   try {
