@@ -253,6 +253,7 @@ initSchema().then(() => {
         }
       } catch (err) {
         console.error('[AUTOMATED CRON] Error in auto pre-event reminder:', err.message);
+      }
     };
     runReminderCheck();
     setInterval(runReminderCheck, 5 * 60 * 1000);
