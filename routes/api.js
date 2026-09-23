@@ -976,42 +976,37 @@ router.post('/line-webhook', async (req, res) => {
                 const isAlreadyAck = (assignment.ack_status === 'ACKNOWLEDGED');
                 const isDeclinedOrBusy = (assignment.ack_status === 'DECLINED_BUSY' || ['BUSY_PENDING', 'SUBSTITUTED', 'DECLINED_NO_SUBSTITUTE'].includes(assignment.assignment_status));
 
-                if (isAlreadyAck) {
-                  const ackTime = assignment.ack_at ? formatDate24h(assignment.ack_at) : '';
-                  const timeNotice = ackTime ? `เมื่อเวลา ${ackTime} น. ` : '';
-                  replyMessages = [{
-                    type: 'text',
-                    text: `ℹ️ ท่านได้กดรับทราบเข้าร่วมกิจกรรม "${assignment.mission_title || '-'}" เรียบร้อยแล้ว${timeNotice}ค่ะ ไม่ต้องกดซ้ำ ขอบคุณค่ะ 🙏`
-                  }];
-                } else if (isDeclinedOrBusy) {
+                if (isDeclinedOrBusy) {
                   replyMessages = [{
                     type: 'text',
                     text: `⚠️ ไม่สามารถกดรับทราบได้ เนื่องจากท่านได้ยื่นแจ้งติดภารกิจ/ขอลาในกิจกรรม "${assignment.mission_title || '-'}" ไปแล้วก่อนหน้านี้ค่ะ\n\nหากต้องการเปลี่ยนแปลงการเข้าร่วม กรุณาติดต่อเจ้าหน้าที่ ผปส. ค่ะ`
                   }];
                 } else {
-                  await dbRun(
-                    `
-                    UPDATE mission_assignments
-                    SET
-                      ack_status = 'ACKNOWLEDGED',
-                      ack_at = datetime('now', '+7 hours')
-                    WHERE id = ?;
-                    `,
-                    [assignment.id]
-                  );
+                  if (!isAlreadyAck) {
+                    await dbRun(
+                      `
+                      UPDATE mission_assignments
+                      SET
+                        ack_status = 'ACKNOWLEDGED',
+                        ack_at = datetime('now', '+7 hours')
+                      WHERE id = ?;
+                      `,
+                      [assignment.id]
+                    );
 
-                  if (lineUserId && assignment.personnel_id) {
-                    try {
-                      await dbRun(
-                        `UPDATE personnel SET line_user_id = ? WHERE id = ? AND (line_user_id IS NULL OR line_user_id != ?);`,
-                        [lineUserId, assignment.personnel_id, lineUserId]
-                      );
-                    } catch (e) {
-                      console.error('[LINE AUTO-BIND] Failed to auto-update line_user_id:', e.message);
+                    if (lineUserId && assignment.personnel_id) {
+                      try {
+                        await dbRun(
+                          `UPDATE personnel SET line_user_id = ? WHERE id = ? AND (line_user_id IS NULL OR line_user_id != ?);`,
+                          [lineUserId, assignment.personnel_id, lineUserId]
+                        );
+                      } catch (e) {
+                        console.error('[LINE AUTO-BIND] Failed to auto-update line_user_id:', e.message);
+                      }
                     }
-                  }
 
-                  await checkAndUpdateMissionStatus(assignment.mission_id);
+                    await checkAndUpdateMissionStatus(assignment.mission_id);
+                  }
 
                   const missionDescription = String(
                     assignment.description || ''
@@ -1037,12 +1032,16 @@ router.post('/line-webhook', async (req, res) => {
                     }
                   }
 
+                  const headerText = isAlreadyAck
+                    ? `ℹ️ ท่านได้กดรับทราบเข้าร่วมกิจกรรมแล้วก่อนหน้านี้ค่ะ ${cleanName}`
+                    : `✅ รับทราบแล้วค่ะ ${cleanName}`;
+
                   if (fileUrl) {
                     replyMessages = [
                       {
                         type: 'text',
                         text:
-                          `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
+                          `${headerText}\n\n` +
                           `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                           `📍 สถานที่: ${assignment.location || '-'}\n` +
                           `⏰ เวลา (24 ชม.): ${timeStr}\n` +
@@ -1056,7 +1055,7 @@ router.post('/line-webhook', async (req, res) => {
                     replyMessages = [{
                       type: 'text',
                       text:
-                        `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
+                        `${headerText}\n\n` +
                         `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
                         `📍 สถานที่: ${assignment.location || '-'}\n` +
                         `⏰ เวลา (24 ชม.): ${timeStr}\n` +
