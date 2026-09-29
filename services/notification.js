@@ -816,7 +816,7 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
     // 💡 ส่งจริงเข้ากลุ่ม LINE ถ้ามีการตั้งค่า LINE_GROUP_ID + LINE_CHANNEL_ACCESS_TOKEN ไว้ใน .env
     // (เดิมโค้ดส่วนนี้แค่บันทึกลง log แต่ไม่เคยส่งเข้ากลุ่มจริงเลย เพราะไม่มี groupId ให้ยิงไป)
     const groupToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const lineGroupId = (process.env.ENABLE_LINE_GROUP_NOTIFY === 'true' && process.env.ONLY_RANIDA_TEST_MODE !== 'true') ? process.env.LINE_GROUP_ID : null;
+    const lineGroupId = process.env.ENABLE_LINE_GROUP_NOTIFY === 'true' ? process.env.LINE_GROUP_ID : null;
     let groupSendStatus = 'SKIPPED'; // สถานะเริ่มต้นถ้าไม่เปิดใช้งานกลุ่ม LINE
 
     if (lineGroupId && groupToken) {
@@ -877,18 +877,6 @@ async function sendMissionNotification(mission, assignedList, isReallocation = f
       if (!targetLineId || !targetLineId.startsWith('U')) {
         console.log(`ℹ️ ${person.name} (${empCode || '-'}) ยังไม่ได้ผูก LINE User ID จึงข้ามการส่ง Push ส่วนตัวให้คนนี้`);
         continue;
-      }
-
-      // 💡 SAFEGUARD: ถ้าอยู่ในโหมดทดสอบเฉพาะ รณิดา ให้ข้ามการส่งข้อความหาคนอื่นทั้งหมด
-      if (process.env.ONLY_RANIDA_TEST_MODE === 'true') {
-        const isRanida = (personId == 1288) || 
-                         (empCode === 'EMP-025') || 
-                         (targetLineId === 'U3a7529a26c7c9a1a06d4cd374349a33c') || 
-                         (person.name && person.name.includes('รณิดา'));
-        if (!isRanida) {
-          console.log(`[TEST MODE ONLY RANIDA] 🛑 ข้ามการส่ง LINE ให้ ${person.name || personId} (${empCode || '-'}) เนื่องจากตั้งค่าทดสอบเฉพาะ คุณรณิดา เท่านั้น`);
-          continue;
-        }
       }
 
       // 💡 ถ้ายังไม่ได้กดปุ่มเขียวใน LINE OA ใหม่ (line_bound_new_oa !== 1) ให้ส่งการ์ดเชิญสลับช่องทางก่อน
