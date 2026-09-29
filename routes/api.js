@@ -1072,15 +1072,52 @@ router.post('/line-webhook', async (req, res) => {
                     await checkAndUpdateMissionStatus(assignment.mission_id);
                   }
 
-                  const missionDescription = String(
-                    assignment.description || ''
-                  ).trim();
+                  const missionTitle = String(assignment.mission_title || '-').trim();
+                  const missionDesc = String(assignment.description || '').trim();
 
                   const timeStr = (assignment.start_date && assignment.end_date)
                     ? `${formatDate24h(assignment.start_date)} - ${formatDate24h(assignment.end_date)}`
                     : '-';
 
-                  const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '');
+                  const cleanName = String(assignment.person_name || assignment.name || '-').replace(/^คุณ\s+/i, '').trim();
+
+                  // ดึงรายชื่อผู้เข้าร่วมกิจกรรมทั้งหมดในภารกิจนี้
+                  let participantText = '';
+                  try {
+                    const participants = await dbAll(`
+                      SELECT p.name, p.position, p.department, ma.is_leader, ma.role_type
+                      FROM mission_assignments ma
+                      JOIN personnel p ON p.id = ma.personnel_id
+                      WHERE ma.mission_id = ?
+                        AND (ma.assignment_status = 'JOINED' OR ma.assignment_status IS NULL)
+                      ORDER BY 
+                        CASE WHEN ma.is_leader = 1 OR UPPER(ma.role_type) = 'DIRECTOR' THEN 1 ELSE 2 END,
+                        p.id ASC;
+                    `, [assignment.mission_id]);
+
+                    if (participants && participants.length > 0) {
+                      const lines = participants.map((p, idx) => {
+                        const cleanPName = String(p.name || '').replace(/^คุณ\s+/i, '').trim();
+                        const pos = String(p.position || p.department || '').trim();
+                        return `${idx + 1}. ${cleanPName}${pos ? ' ' + pos : ''}`;
+                      });
+                      participantText = `รายชื่อผู้เข้าร่วมกิจกรรม ดังนี้\n${lines.join('\n')}`;
+                    }
+                  } catch (pErr) {
+                    console.error('Error fetching participants for ACK message:', pErr);
+                  }
+
+                  let detailsBlock = '';
+                  if (missionDesc && missionDesc !== missionTitle && participantText) {
+                    detailsBlock = `${missionDesc}\n${participantText}`;
+                  } else if (missionDesc && missionDesc !== missionTitle) {
+                    detailsBlock = missionDesc;
+                  } else if (participantText) {
+                    detailsBlock = participantText;
+                  } else {
+                    detailsBlock = 'ไม่มีรายละเอียดเพิ่มเติม';
+                  }
+
                   let fileUrl = null;
                   if (assignment.attachment_file && !assignment.attachment_file.includes('fmothai-my.sharepoint.com') && !assignment.attachment_file.includes('sharepoint.com/:b:/g/')) {
                     const rawBaseUrl = process.env.APP_BASE_URL || 'https://smart-queue.fishmarket.co.th/app';
@@ -1096,34 +1133,23 @@ router.post('/line-webhook', async (req, res) => {
                     }
                   }
 
+                  let replyText = `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
+                    `📋 กิจกรรม:\n${missionTitle}\n\n` +
+                    `📍 สถานที่: ${assignment.location || '-'}\n` +
+                    `⏰ เวลา (24 ชม.): ${timeStr}\n` +
+                    `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
+                    `📝 รายละเอียด/กำหนดการ:\n${detailsBlock}`;
+
                   if (fileUrl) {
-                    replyMessages = [
-                      {
-                        type: 'text',
-                        text:
-                          `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
-                          `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
-                          `📍 สถานที่: ${assignment.location || '-'}\n` +
-                          `⏰ เวลา (24 ชม.): ${timeStr}\n` +
-                          `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
-                          `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                          `📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}\n\n` +
-                          `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
-                      }
-                    ];
-                  } else {
-                    replyMessages = [{
-                      type: 'text',
-                      text:
-                        `✅ รับทราบแล้วค่ะ ${cleanName}\n\n` +
-                        `📋 กิจกรรม:\n${assignment.mission_title || '-'}\n\n` +
-                        `📍 สถานที่: ${assignment.location || '-'}\n` +
-                        `⏰ เวลา (24 ชม.): ${timeStr}\n` +
-                        `👔 การแต่งกาย: ${assignment.dress_code || 'ชุดปฏิบัติงาน อสป.'}\n\n` +
-                        `📝 รายละเอียด/กำหนดการ:\n${missionDescription || 'ไม่มีรายละเอียดเพิ่มเติม'}\n\n` +
-                        `ระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`
-                    }];
+                    replyText += `\n\n📎 ลิงก์ดาวน์โหลดเอกสารกำหนดการ:\n${fileUrl}`;
                   }
+
+                  replyText += `\n\nระบบได้บันทึกการตอบรับเรียบร้อยแล้ว ขอบคุณค่ะ 🙏`;
+
+                  replyMessages = [{
+                    type: 'text',
+                    text: replyText
+                  }];
                 }
               }
             }
