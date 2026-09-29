@@ -821,6 +821,15 @@ router.post('/line-webhook', async (req, res) => {
 
   async function dispatchPendingMissionsForUser(personnelId) {
     try {
+      if (process.env.ONLY_RANIDA_TEST_MODE === 'true') {
+        const pCheck = await dbGet(`SELECT id, emp_code, name, line_user_id FROM personnel WHERE id = ?;`, [personnelId]);
+        const isRanida = pCheck && (pCheck.id == 1288 || pCheck.emp_code === 'EMP-025' || pCheck.line_user_id === 'U3a7529a26c7c9a1a06d4cd374349a33c' || (pCheck.name && pCheck.name.includes('รณิดา')));
+        if (!isRanida) {
+          console.log(`[INSTANT DISPATCH] 🛑 ข้ามการส่งการ์ดให้อัตโนมัติสำหรับ ${pCheck?.name || personnelId} เนื่องจากตั้งค่าทดสอบเฉพาะ คุณรณิดา เท่านั้น`);
+          return;
+        }
+      }
+
       const person = await dbGet(`SELECT * FROM personnel WHERE id = ?;`, [personnelId]);
       if (!person || !person.line_user_id) return;
 
