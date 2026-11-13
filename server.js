@@ -258,17 +258,19 @@ initSchema().then(() => {
     runReminderCheck();
     setInterval(runReminderCheck, 5 * 60 * 1000);
 
-    // 🚗 Start Automated Car Booking Status Sync Task (Every 3 mins)
-    const runCarStatusSync = async () => {
-      try {
-        const axios = require('axios');
-        await axios.get(`http://localhost:${PORT}/api/external/sync-car-status`, { timeout: 5000 });
-      } catch (err) {
-        // quiet background sync
-      }
-    };
-    runCarStatusSync();
-    setInterval(runCarStatusSync, 3 * 60 * 1000);
+    // 🚗 Automated Car Booking Status Sync Task (Disabled - ปิดการทำงานอัตโนมัติ)
+    if (process.env.ENABLE_AUTO_CAR_BOOKING === 'true') {
+      const runCarStatusSync = async () => {
+        try {
+          const axios = require('axios');
+          await axios.get(`http://localhost:${PORT}/api/external/sync-car-status`, { timeout: 5000 });
+        } catch (err) {
+          // quiet background sync
+        }
+      };
+      runCarStatusSync();
+      setInterval(runCarStatusSync, 3 * 60 * 1000);
+    }
   });
 }).catch(err => {
   console.error('❌ Failed to initialize database:', err);

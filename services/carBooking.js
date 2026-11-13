@@ -11,6 +11,9 @@ const CAR_BOOKING_WEB_URL = process.env.CAR_BOOKING_WEB_URL || 'http://localhost
  * @returns {Promise<Object>} Result object { success: true/false, booking_id, status, car_booking_url }
  */
 async function createAutoCarBooking(mission, assignedList = []) {
+  if (process.env.ENABLE_AUTO_CAR_BOOKING !== 'true') {
+    return { success: false, message: 'Auto car booking is disabled' };
+  }
   return new Promise((resolve) => {
     try {
       const url = new URL(CAR_BOOKING_API_URL);

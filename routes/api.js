@@ -2970,24 +2970,26 @@ router.post('/missions/create', async (req, res) => {
         }
       }
 
-      // 🚗 ยิง API จองรถในแบ็คกราวด์อย่างอิสระ (setImmediate) ไม่กระทบและไม่ต้องรอผลใดๆ
-      setImmediate(async () => {
-        try {
-          const finalMissionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
-          if (finalMissionData) {
-            const carRes = await createAutoCarBooking(finalMissionData, assignedList);
-            if (carRes && carRes.success && carRes.booking_id) {
-              console.log(`✅ [Auto-Car-Booking Background] Created booking ${carRes.booking_id} for mission ${missionId}`);
-              await dbRun(
-                `UPDATE missions SET car_booking_id = ?, car_booking_status = ? WHERE id = ?;`,
-                [carRes.booking_id, carRes.status || 'PENDING', missionId]
-              ).catch(e => console.error('Error saving car_booking_id:', e));
+      // 🚗 ปิดการจองรถแบบอัตโนมัติ (ยกเลิกการส่งคำขอจองรถอัตโนมัติเมื่อสร้างภารกิจ)
+      if (process.env.ENABLE_AUTO_CAR_BOOKING === 'true') {
+        setImmediate(async () => {
+          try {
+            const finalMissionData = await dbGet(`SELECT * FROM missions WHERE id = ?;`, [missionId]);
+            if (finalMissionData) {
+              const carRes = await createAutoCarBooking(finalMissionData, assignedList);
+              if (carRes && carRes.success && carRes.booking_id) {
+                console.log(`✅ [Auto-Car-Booking Background] Created booking ${carRes.booking_id} for mission ${missionId}`);
+                await dbRun(
+                  `UPDATE missions SET car_booking_id = ?, car_booking_status = ? WHERE id = ?;`,
+                  [carRes.booking_id, carRes.status || 'PENDING', missionId]
+                ).catch(e => console.error('Error saving car_booking_id:', e));
+              }
             }
+          } catch (err) {
+            console.error('❌ Background Auto-Car-Booking error:', err);
           }
-        } catch (err) {
-          console.error('❌ Background Auto-Car-Booking error:', err);
-        }
-      });
+        });
+      }
     } catch (notificationError) {
       console.error(
         '❌ เกิดข้อผิดพลาดตอนส่งแจ้งเตือน:',
@@ -4818,9 +4820,7 @@ router.post('/external/update-car-status', async (req, res) => {
     };
     const carDetailsJson = JSON.stringify(carDetailsObj);
 
-    if (!mission) {
-      mission = await dbGet(`SELECT * FROM missions WHERE car_booking_status = 'PENDING' OR car_booking_status IS NULL ORDER BY id DESC LIMIT 1;`);
-    }
+    // (ปิด fallback ป้องกันการสุ่มแมปภารกิจล่าสุดที่ไม่เกี่ยวข้อง)
 
     if (mission) {
       await dbRun(
