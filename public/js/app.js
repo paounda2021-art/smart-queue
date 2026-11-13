@@ -1958,8 +1958,6 @@ function renderMissionsTable(list) {
       statusBadge = '<span class="badge badge-hold" style="background:#ef4444; color:white;"><i class="fa-solid fa-ban"></i> CANCELLED</span>';
     }
 
-    }
-
     const isRecent = isNewMission(m.created_at || m.start_date);
     const newBadge = (isRecent && statusUpper !== 'CANCELLED') ? ' <span class="badge-new-pulse"><i class="fa-solid fa-bell fa-beat"></i> NEW</span>' : '';
 
